@@ -1,0 +1,262 @@
+/* ==========================================================================
+   Sumber Tailwind CSS — E-Voting OSIS
+   Kompilasi: npx tailwindcss -i assets/tailwind.css -o assets/app.css --minify
+   ========================================================================== */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  /* Latar belakang halaman aplikasi */
+  body {
+    @apply bg-slate-50 text-slate-800 antialiased;
+  }
+
+  /* Kanvas Chart.js WAJIB dibatasi max-width: Chart.js menulis lebar inline
+     sesuai wadah saat itu; tanpa batas ini, wadah grid ikut melar ketika layar
+     diciutkan (gejala: halaman meluber mendatar di HP setelah diputar/dikecilkan). */
+  canvas {
+    max-width: 100%;
+  }
+
+  /* Latar gelap untuk <dialog> (modal visi/misi, konfirmasi, dsb.) */
+  dialog::backdrop {
+    background: rgb(15 23 42 / 0.72);
+    backdrop-filter: blur(3px);
+  }
+
+  /* Modal bawaan peramban: tidak dipusatkan otomatis, jadi diatur di sini */
+  dialog.modal {
+    @apply fixed left-1/2 top-1/2 m-0 max-h-[92vh] w-[min(94vw,42rem)] -translate-x-1/2 -translate-y-1/2 overflow-hidden rounded-2xl border-0 bg-white p-0 shadow-naik;
+  }
+
+  /* Animasi muncul dijalankan pada ISI dialog, BUKAN pada <dialog> itu sendiri:
+     keyframes apa pun yang menyentuh `transform` akan menimpa pemusatan
+     (-translate-x-1/2 -translate-y-1/2) sehingga dialog meleset keluar layar.
+     Pelajaran ini sudah menggigit sekali — jangan dipindahkan ke <dialog>. */
+  dialog.modal[open] > * {
+    @apply animate-pop;
+  }
+
+  /* Fokus yang tetap terlihat untuk pengguna keyboard */
+  :focus-visible {
+    @apply outline-none ring-4 ring-brand-200;
+  }
+}
+
+@layer components {
+  /* ---------------------------------------------------------------- Kartu */
+  .kartu {
+    @apply rounded-2xl bg-white shadow-soft ring-1 ring-slate-200/80;
+  }
+  .kartu-pad {
+    @apply p-5 sm:p-6;
+  }
+  .kartu-judul {
+    @apply text-base font-bold text-slate-900 sm:text-lg;
+  }
+  .kartu-ket {
+    @apply text-sm text-slate-500;
+  }
+
+  /* --------------------------------------------------------------- Tombol */
+  .tombol {
+    @apply inline-flex select-none items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold
+           transition duration-200 focus:outline-none focus-visible:ring-4 disabled:cursor-not-allowed disabled:opacity-60;
+  }
+  .tombol-utama {
+    @apply inline-flex select-none items-center justify-center gap-2 rounded-xl bg-brand-600 px-4 py-2.5 text-sm font-semibold
+           text-white shadow-md shadow-brand-600/25 transition duration-200 hover:-translate-y-0.5 hover:bg-brand-700
+           focus:outline-none focus-visible:ring-4 focus-visible:ring-brand-200 disabled:cursor-not-allowed disabled:opacity-60;
+  }
+  .tombol-ok {
+    @apply inline-flex select-none items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-semibold
+           text-white shadow-md shadow-emerald-600/25 transition duration-200 hover:-translate-y-0.5 hover:bg-emerald-700
+           focus:outline-none focus-visible:ring-4 focus-visible:ring-emerald-200 disabled:cursor-not-allowed disabled:opacity-60;
+  }
+  .tombol-bahaya {
+    @apply inline-flex select-none items-center justify-center gap-2 rounded-xl bg-rose-600 px-4 py-2.5 text-sm font-semibold
+           text-white shadow-md shadow-rose-600/25 transition duration-200 hover:-translate-y-0.5 hover:bg-rose-700
+           focus:outline-none focus-visible:ring-4 focus-visible:ring-rose-200 disabled:cursor-not-allowed disabled:opacity-60;
+  }
+  .tombol-putih {
+    @apply inline-flex select-none items-center justify-center gap-2 rounded-xl bg-white px-4 py-2.5 text-sm font-semibold
+           text-slate-700 ring-1 ring-slate-300 transition duration-200 hover:-translate-y-0.5 hover:bg-slate-50
+           focus:outline-none focus-visible:ring-4 focus-visible:ring-slate-200 disabled:cursor-not-allowed disabled:opacity-60;
+  }
+  .tombol-kecil {
+    @apply px-3 py-1.5 text-xs;
+  }
+  .tombol-besar {
+    @apply w-full rounded-2xl px-6 py-4 text-base sm:text-lg;
+  }
+
+  /* ---------------------------------------------------------------- Isian */
+  .label {
+    @apply mb-1.5 block text-sm font-semibold text-slate-700;
+  }
+  .isian {
+    @apply w-full rounded-xl border-0 bg-white px-3.5 py-2.5 text-sm text-slate-800 ring-1 ring-slate-300
+           transition placeholder:text-slate-400 focus:ring-2 focus:ring-brand-500;
+  }
+  .isian-rapat {
+    @apply tracking-widest;
+  }
+  .catatan-kecil {
+    @apply mt-1.5 text-xs text-slate-500;
+  }
+
+  /* -------------------------------------------------------------- Lencana */
+  .pill {
+    @apply inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold ring-1;
+  }
+  .pill-ok {
+    @apply inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700 ring-1 ring-emerald-200;
+  }
+  .pill-kuning {
+    @apply inline-flex items-center gap-1.5 rounded-full bg-amber-50 px-2.5 py-1 text-xs font-semibold text-amber-700 ring-1 ring-amber-200;
+  }
+  .pill-abu {
+    @apply inline-flex items-center gap-1.5 rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-600 ring-1 ring-slate-200;
+  }
+  .pill-bahaya {
+    @apply inline-flex items-center gap-1.5 rounded-full bg-rose-50 px-2.5 py-1 text-xs font-semibold text-rose-700 ring-1 ring-rose-200;
+  }
+
+  /* --------------------------------------------------------------- Tabel */
+  .bungkus-tabel {
+    @apply -mx-5 overflow-x-auto px-5 sm:mx-0 sm:px-0;
+  }
+  .tabel {
+    @apply w-full min-w-[42rem] border-separate border-spacing-0 text-left text-sm;
+  }
+  .tabel thead th {
+    @apply sticky top-0 z-10 whitespace-nowrap border-b border-slate-200 bg-slate-50 px-4 py-3 text-xs
+           font-bold uppercase tracking-wide text-slate-500;
+  }
+  .tabel tbody td {
+    @apply border-b border-slate-100 px-4 py-3 align-middle;
+  }
+  .tabel tbody tr:hover td {
+    @apply bg-slate-50/70;
+  }
+
+  /* ---------------------------------------------------------------- Notis */
+  .notis {
+    @apply flex items-start gap-3 rounded-xl px-4 py-3 text-sm font-medium ring-1;
+  }
+  .notis-ok {
+    @apply flex items-start gap-3 rounded-xl bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-800 ring-1 ring-emerald-200;
+  }
+  .notis-galat {
+    @apply flex items-start gap-3 rounded-xl bg-rose-50 px-4 py-3 text-sm font-medium text-rose-800 ring-1 ring-rose-200;
+  }
+  .notis-info {
+    @apply flex items-start gap-3 rounded-xl bg-brand-50 px-4 py-3 text-sm font-medium text-brand-800 ring-1 ring-brand-200;
+  }
+  .notis-kuning {
+    @apply flex items-start gap-3 rounded-xl bg-amber-50 px-4 py-3 text-sm font-medium text-amber-800 ring-1 ring-amber-200;
+  }
+
+  /* -------------------------------------------------------- Menu samping */
+  .nav-tautan {
+    @apply flex items-center gap-3 rounded-xl px-3.5 py-2.5 text-sm font-semibold text-brand-100/90
+           transition hover:bg-white/10 hover:text-white;
+  }
+  .nav-tautan-aktif {
+    @apply flex items-center gap-3 rounded-xl bg-white px-3.5 py-2.5 text-sm font-bold text-brand-800 shadow-soft;
+  }
+  .nav-lencana {
+    @apply ml-auto rounded-lg bg-white/15 px-2 py-0.5 text-xs font-bold text-white;
+  }
+
+  /* ------------------------------------------------------------ Tab */
+  .tab-aktif {
+    @apply bg-white text-brand-800 shadow-soft;
+  }
+  .tab-tidak {
+    @apply text-slate-500 hover:text-slate-700;
+  }
+
+  /* --------------------------- Foto paslon di halaman masuk */
+  /* Semua foto pasangan calon tampil SEKALIGUS (bukan slider). Jumlah kolom
+     mengikuti banyaknya paslon (--kolom dari PHP) sehingga ukuran foto
+     menyesuaikan ruang yang tersedia pada kartu biru. */
+  .foto-grid {
+    display: grid;
+    gap: 0.75rem;
+    grid-template-columns: repeat(var(--kolom, 3), minmax(0, 1fr));
+  }
+  /* Satu paslon saja: jangan melebar penuh, cukup seukuran wajar & di tengah. */
+  .foto-grid.satu {
+    grid-template-columns: minmax(0, 22rem);
+    justify-content: center;
+  }
+  @media (max-width: 1024px) {
+    .foto-grid { grid-template-columns: repeat(var(--kolom-2, 2), minmax(0, 1fr)); }
+    .foto-grid.satu { grid-template-columns: minmax(0, 20rem); justify-content: center; }
+  }
+  @media (max-width: 640px) {
+    .foto-grid,
+    .foto-grid.satu { grid-template-columns: minmax(0, 1fr); }
+  }
+
+  /* Tinggi kartu foto dibikin agak memanjang (bukan 4:3) supaya seluruh foto
+     paslon terlihat — termasuk BAGIAN BAWAH yang memuat NAMA pasangan calon.
+     Foto unggahan pemilik berukuran +-1691x1995 (rasio tinggi/lebar 1,18), jadi
+     kartu 4:5 (1,25) menampilkan hampir seluruh tingginya: yang terpotong hanya
+     sedikit bagian SAMPING, tidak pernah bagian bawah (nama selalu terbaca).
+     Jangan dikembalikan ke 4:3. */
+  .foto-paslon {
+    @apply relative overflow-hidden rounded-2xl bg-brand-950/40 ring-1 ring-white/15;
+    aspect-ratio: 4 / 5;
+  }
+  .foto-paslon img {
+    @apply h-full w-full object-cover;
+    object-position: center;
+  }
+  .foto-paslon-nomor {
+    @apply absolute left-3 top-3 rounded-full bg-slate-900/70 px-3 py-1 text-xs font-bold text-white backdrop-blur;
+  }
+
+  /* -------------------------------------- Kartu paslon (antarmuka pemilih) */
+  .paslon-kartu {
+    @apply relative flex flex-col overflow-hidden rounded-3xl bg-white shadow-soft ring-1 ring-slate-200/80
+           transition duration-300 hover:-translate-y-1 hover:shadow-naik;
+  }
+  .paslon-nomor {
+    @apply absolute left-4 top-4 z-20 grid h-14 w-14 place-items-center rounded-2xl bg-white/95 text-xl
+           font-black text-brand-800 shadow-md ring-2 ring-white;
+  }
+  .paslon-foto {
+    @apply aspect-[4/3] w-full object-cover;
+  }
+  .paslon-pilih {
+    @apply mt-auto inline-flex w-full select-none items-center justify-center gap-2 rounded-b-3xl bg-emerald-600
+           px-6 py-4 text-base font-black tracking-wide text-white transition duration-200 hover:bg-emerald-700
+           focus:outline-none focus-visible:ring-4 focus-visible:ring-emerald-200;
+  }
+
+  /* --------------------------------------------------------------- Hasil */
+  .stat-kartu {
+    @apply flex items-center gap-4 rounded-2xl bg-white p-5 shadow-soft ring-1 ring-slate-200/80 transition hover:-translate-y-0.5;
+  }
+  .stat-ikon {
+    @apply grid h-12 w-12 shrink-0 place-items-center rounded-xl;
+  }
+  .stat-angka {
+    @apply text-2xl font-black leading-none text-slate-900 sm:text-3xl;
+  }
+  .stat-label {
+    @apply text-xs font-semibold uppercase tracking-wide text-slate-500;
+  }
+  .baris-hasil {
+    @apply flex items-center gap-3 rounded-2xl bg-white p-3.5 shadow-soft ring-1 ring-slate-200/80;
+  }
+  .bar-luar {
+    @apply h-3 w-full overflow-hidden rounded-full bg-slate-100;
+  }
+  .bar-dalam {
+    @apply h-full rounded-full bg-gradient-to-r from-brand-600 to-brand-400 transition-[width] duration-700 ease-out;
+  }
+}
