@@ -20,8 +20,10 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 }
 csrf_periksa();
 
-$paslonId = (int) ($_POST['paslon_id'] ?? 0);
-$paslon   = satu('SELECT * FROM paslon WHERE id = ? AND aktif = 1', [$paslonId]);
+$paslonId  = (int) ($_POST['paslon_id'] ?? 0);
+$lembagaId = lembaga_id_aktif();
+/* Paslon diperiksa DI DALAM lembaga pemilih: id paslon lembaga lain ditolak. */
+$paslon   = satu('SELECT * FROM paslon WHERE id = ? AND aktif = 1 AND lembaga_id = ?', [$paslonId, $lembagaId]);
 if ($paslon === false) {
     flash('galat', 'Pasangan calon yang Anda pilih tidak tersedia. Silakan pilih ulang.');
     redirect('pilih.php');
@@ -34,12 +36,13 @@ $berhasil = false;
 try {
     $pdo->exec('BEGIN IMMEDIATE');
     $ubah = jalankan(
-        'UPDATE pemilih SET sudah = 1, waktu = ? WHERE id = ? AND sudah = 0',
-        [date('Y-m-d H:i:s'), (int) $pemilih['id']]
+        'UPDATE pemilih SET sudah = 1, waktu = ? WHERE id = ? AND sudah = 0 AND lembaga_id = ?',
+        [date('Y-m-d H:i:s'), (int) $pemilih['id'], $lembagaId]
     );
 
     if ($ubah === 1) {
-        q('INSERT INTO suara (paslon_id, dibuat) VALUES (?, ?)', [$paslonId, date('Y-m-d H:i:s')]);
+        q('INSERT INTO suara (lembaga_id, paslon_id, dibuat) VALUES (?, ?, ?)',
+            [$lembagaId, $paslonId, date('Y-m-d H:i:s')]);
         $pdo->exec('COMMIT');
         $berhasil = true;
     } else {

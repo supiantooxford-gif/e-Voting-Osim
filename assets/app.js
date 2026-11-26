@@ -1,5 +1,5 @@
 /* ==========================================================================
-   E-Voting OSIS — assets/app.js
+   E-Voting OSIM — assets/app.js
    --------------------------------------------------------------------------
    Skrip modular: setiap fitur punya fungsi `init...` sendiri dan hanya bekerja
    bila elemennya memang ada di halaman, sehingga satu berkas aman dipakai di
@@ -18,6 +18,7 @@
     10. Hasil live      — grafik + penyegaran otomatis (real-count)
     11. Hitung mundur   — keluar otomatis setelah memilih
     12. Nav mobile      — menu samping panel panitia
+    13. Grafik DPT kelas — sebaran DPT per kelas (dashboard panitia)
    ========================================================================== */
 window.EV = (function () {
   'use strict';
@@ -787,7 +788,7 @@ window.EV = (function () {
     const aturan = {
       siswa: {
         induk: 'NISN / NIS', contoh: 'mis. 0071234501',
-        labelInduk: 'NISN / NIS', ket: 'Nomor Induk Siswa Nasional (10 digit) atau NIS sekolah.',
+        labelInduk: 'NISN / NIS', ket: 'Nomor Induk Siswa Nasional (10 digit) atau NIS madrasah.',
       },
       guru: {
         induk: 'NIK', contoh: 'mis. 197501012005011001',
@@ -834,6 +835,69 @@ window.EV = (function () {
     periksa();
   }
 
+  /* ============ 17. GRAFIK DPT PER KELAS (dashboard panitia) ============ */
+  /**
+   * Grafik batang bertumpuk: panjang bar = jumlah DPT kelompok itu, bagian
+   * hijau = sudah memilih, kuning = belum. Datanya dirender server
+   * (dpt_per_kelas() → #dataDptKelas) supaya angkanya sama dengan tabel
+   * "Lihat angka per kelas" di halaman yang sama.
+   */
+  function initDptKelas() {
+    const kanvas = $('#chDptKelas');
+    const sumber = $('#dataDptKelas');
+    if (!kanvas || !sumber || typeof window.Chart === 'undefined') { return; }
+
+    let isi = null;
+    try { isi = JSON.parse(sumber.textContent); } catch (e) { isi = null; }
+    if (!isi || !Array.isArray(isi.baris) || !isi.baris.length) { return; }
+
+    const label = isi.baris.map((b) => b.label);
+    const sudah = isi.baris.map((b) => Number(b.sudah) || 0);
+    const belum = isi.baris.map((b) => Number(b.belum) || 0);
+    const dpt   = isi.baris.map((b) => Number(b.dpt) || 0);
+
+    window.Chart.defaults.font.family = "Inter, ui-sans-serif, system-ui, sans-serif";
+    window.Chart.defaults.color = '#475569';
+
+    new window.Chart(kanvas, {
+      type: 'bar',
+      data: {
+        labels: label,
+        datasets: [
+          {
+            label: 'Sudah memilih', data: sudah, stack: 'dpt',
+            backgroundColor: '#059669', borderRadius: 3, maxBarThickness: 26,
+          },
+          {
+            label: 'Belum memilih', data: belum, stack: 'dpt',
+            backgroundColor: '#f59e0b', borderRadius: 3, maxBarThickness: 26,
+          },
+        ],
+      },
+      options: {
+        indexAxis: 'y',
+        responsive: true,
+        /* Tinggi wadah sudah ditentukan halaman; tanpa ini Chart.js memakai
+           rasio bawaan sehingga grafik melar ke bawah. */
+        maintainAspectRatio: false,
+        animation: { duration: 500 },
+        scales: {
+          x: { stacked: true, beginAtZero: true, grid: { color: '#e2e8f0' }, ticks: { precision: 0 } },
+          y: { stacked: true, grid: { display: false } },
+        },
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            callbacks: {
+              label: (c) => ' ' + c.dataset.label + ': ' + angka(c.parsed.x),
+              footer: (daftar) => 'DPT: ' + angka(dpt[daftar[0].dataIndex]),
+            },
+          },
+        },
+      },
+    });
+  }
+
   /* ============================ PENYIAPAN ============================= */
   function siapkan() {
     initToast();
@@ -853,6 +917,7 @@ window.EV = (function () {
     initTutupKartu();
     initJenisLembaga();
     initJenisPemilih();
+    initDptKelas();
   }
 
   return { siapkan, toast, angka, persen };

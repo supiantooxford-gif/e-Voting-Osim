@@ -10,12 +10,47 @@ declare(strict_types=1);
 require_once __DIR__ . '/inc/init.php';
 require_once __DIR__ . '/inc/layout.php';
 
-$publik  = hasil_publik();
-$admin   = is_admin();
-$layar   = ($_GET['layar'] ?? '') === '1';
+/* =========================================================================
+   LEMBAGA MANA YANG HASILNYA DIBUKA?
+   - tanpa ?lembaga  : memakai konteks sesi (panitia/pemilih/Super Admin);
+   - dengan ?lembaga: pengunjung publik (bila hasilnya dibuka) atau Super Admin.
+   Panitia/pemilih TIDAK boleh membuka hasil lembaga lain, sekalipun mengetik
+   ?lembaga= sendiri di alamat.
+   ========================================================================= */
+$minta   = (int) ($_GET['lembaga'] ?? 0);
+$konteks = lembaga_id_aktif();
+$id      = $minta > 0 ? $minta : $konteks;
+$lembaga = $id > 0 ? lembaga_by_id($id) : false;
 
-/* Hasil disembunyikan → hanya panitia yang boleh melihat. */
-if (!$publik && !$admin) {
+if ($lembaga === false) {
+    flash('kuning', 'Pilih madrasah lebih dulu untuk melihat hasilnya.');
+    redirect('index.php');
+}
+
+/* Pengunjung (tanpa sesi) & Super Admin memakai halaman hasil SEBAGAI lembaga
+   yang dibuka; panitia/pemilih tetap memakai konteks lembaganya sendiri. */
+$punyaSesi   = $konteks > 0;
+$lintas      = is_super() && $konteks !== $id;   /* Super Admin melihat lembaga lain */
+if (!$punyaSesi || $lintas) {
+    lembaga_pakai($id);
+}
+
+$publik = hasil_publik($id);
+$layar  = ($_GET['layar'] ?? '') === '1';
+/* Pengelola (boleh melihat walau hasil ditutup): panitia lembaga itu sendiri,
+   Super Admin yang sedang mengelola lembaga itu, atau Super Admin lintas. */
+$admin  = is_admin() && $konteks === $id;
+/* Super Admin yang sedang mengelola lembaga INI boleh memakai panelnya;
+   Super Admin yang hanya menengok lembaga lain cukup melihat (tanpa tombol
+   pengelolaan, karena tombol itu bekerja pada konteks sesi, bukan ?lembaga). */
+
+/* Identitas yang dicetak SELALU milik lembaga yang hasilnya dibuka. */
+$namaLembaga = (string) $lembaga['nama'];
+$pemilihan   = setting_lembaga($id, 'nama_pemilihan');
+$periode     = setting_lembaga($id, 'periode');
+
+/* Hasil disembunyikan -> hanya pengelola lembaga itu & Super Admin. */
+if (!$publik && !$admin && !$lintas) {
     page_top('Hasil Belum Dibuka', ['shell' => 'publik']);
     ?>
     <div class="mx-auto max-w-xl">
@@ -23,11 +58,12 @@ if (!$publik && !$admin) {
         <span class="mx-auto grid h-16 w-16 place-items-center rounded-2xl bg-amber-100 text-amber-600"><?= ikon('kunci', 'h-8 w-8') ?></span>
         <h1 class="mt-4 text-xl font-black text-slate-900">Hasil pemilihan belum dibuka</h1>
         <p class="mt-2 text-sm text-slate-600">
-          Panitia OSIS belum membuka papan hasil untuk publik. Silakan kembali lagi setelah pemungutan suara selesai.
+          Panitia <?= e(istilah_kegiatan()) ?> <?= e((string) $lembaga['nama']) ?> belum membuka papan hasil untuk publik.
+          Silakan kembali lagi setelah pemungutan suara selesai.
         </p>
         <div class="mt-5 flex flex-col gap-3 sm:flex-row">
-          <a href="index.php" class="tombol-putih flex-1">Kembali ke halaman masuk</a>
-          <a href="index.php?tab=panitia" class="tombol-utama flex-1">Masuk sebagai panitia</a>
+          <a href="index.php" class="tombol-putih flex-1">Kembali ke halaman depan</a>
+          <a href="masuk.php?lembaga=<?= (int) $id ?>&amp;tab=panitia" class="tombol-utama flex-1">Masuk sebagai panitia</a>
         </div>
       </div>
     </div>
@@ -36,7 +72,7 @@ if (!$publik && !$admin) {
     exit;
 }
 
-$h      = hasil_lengkap();
+$h      = hasil_lengkap($id);
 $paslon = $h['paslon'];
 
 /* Data untuk grafik & penyegaran (dipakai assets/app.js). */
@@ -61,14 +97,22 @@ if ($admin) {
     } else {
         $aksiKanan .= '<a href="hasil.php" class="tombol-putih tombol-kecil">' . ikon('tutup', 'h-4 w-4') . ' Keluar Mode Layar</a>';
     }
+} elseif ($lintas) {
+    /* Super Admin melihat lembaga lain: hanya lihat, tanpa tombol pengelolaan. */
+    $aksiKanan = '<span class="pill bg-amber-100 text-amber-800 ring-amber-300">Super Admin &middot; hanya lihat</span>';
+    if (!$layar) {
+        $aksiKanan .= '<a href="?lembaga=' . (int) $id . '&amp;layar=1" class="tombol-putih tombol-kecil">' . ikon('chart', 'h-4 w-4') . ' Mode Layar</a>';
+    } else {
+        $aksiKanan .= '<a href="hasil.php?lembaga=' . (int) $id . '" class="tombol-putih tombol-kecil">' . ikon('tutup', 'h-4 w-4') . ' Keluar Mode Layar</a>';
+    }
 } elseif (!$layar) {
-    $aksiKanan = '<a href="?layar=1" class="tombol-putih tombol-kecil">' . ikon('chart', 'h-4 w-4') . ' Mode Layar</a>';
+    $aksiKanan = '<a href="?lembaga=' . (int) $id . '&amp;layar=1" class="tombol-putih tombol-kecil">' . ikon('chart', 'h-4 w-4') . ' Mode Layar</a>';
 }
 
-$shell = $layar ? 'polos' : ($admin ? 'admin' : 'publik');
-page_top('Hasil Real-Count', [
+$shell = $layar ? 'polos' : ($admin ? 'admin' : ($lintas ? 'super' : 'publik'));
+page_top($lintas ? 'Hasil &middot; ' . $lembaga['nama'] : 'Hasil Real-Count', [
     'shell' => $shell,
-    'sub'   => 'Pemungutan suara ' . setting('periode'),
+    'sub'   => 'Pemungutan suara ' . $periode . ($lintas ? ' &middot; ' . $namaLembaga : ''),
     'aksi'  => $aksiKanan,
 ]);
 ?>
@@ -78,8 +122,8 @@ page_top('Hasil Real-Count', [
     <div class="mx-auto flex max-w-[90rem] flex-wrap items-center gap-4">
       <div class="min-w-0 flex-1">
         <p class="text-xs font-bold uppercase tracking-[.3em] text-brand-200">Hasil Sementara</p>
-        <h1 class="text-2xl font-black sm:text-3xl"><?= e(setting('nama_pemilihan')) ?></h1>
-        <p class="text-sm text-brand-200"><?= e(setting('nama_lembaga')) ?> &middot; <?= e(setting('periode')) ?></p>
+        <h1 class="text-2xl font-black sm:text-3xl"><?= e($pemilihan) ?></h1>
+        <p class="text-sm text-brand-200"><?= e($namaLembaga) ?> &middot; <?= e($periode) ?></p>
       </div>
       <div class="text-right">
         <p class="text-xs font-semibold uppercase tracking-wide text-brand-200">Partisipasi</p>
@@ -90,10 +134,10 @@ page_top('Hasil Real-Count', [
 <?php endif; ?>
 
 <!-- Wrapper penyegaran otomatis (dibaca oleh skrip aplikasi) -->
-<div data-hasil data-api="api_hasil.php" data-jeda="<?= (int) HASIL_POLLING ?>" class="space-y-6 <?= $layar ? 'mx-auto max-w-[90rem] px-4 py-6 sm:px-6' : 'mt-1' ?>">
+<div data-hasil data-api="api_hasil.php?lembaga=<?= (int) $id ?>" data-jeda="<?= (int) HASIL_POLLING ?>" class="space-y-6 <?= $layar ? 'mx-auto max-w-[90rem] px-4 py-6 sm:px-6' : 'mt-1' ?>">
 
   <?php if (!$layar): ?>
-  <section class="animate-masuk overflow-hidden rounded-3xl bg-gradient-to-r from-brand-800 via-brand-900 to-brand-800 p-6 text-white shadow-naik sm:p-8">
+  <section class="animate-masuk overflow-hidden rounded-3xl bg-gradient-to-r from-brand-800 via-brand-800 to-brand-900 p-6 text-white shadow-naik ring-1 ring-emas-300/25 sm:p-8">
     <div class="flex flex-wrap items-center gap-4">
       <span class="grid h-14 w-14 place-items-center rounded-2xl bg-white/15 ring-1 ring-white/25"><?= ikon('chart', 'h-7 w-7') ?></span>
       <div class="min-w-0 flex-1">

@@ -31,12 +31,15 @@ page_top('Pilih Pasangan Calon', ['shell' => 'publik', 'aksi' => $aksiKanan]);
 <!-- ======================== SAMBUTAN & PETUNJUK ======================== -->
 <section class="animate-masuk overflow-hidden rounded-3xl bg-gradient-to-r from-brand-800 via-brand-900 to-brand-800 p-6 text-white shadow-naik sm:p-8">
   <div class="flex flex-wrap items-center gap-4">
-    <span class="grid h-14 w-14 place-items-center rounded-2xl bg-emerald-500/25 text-emerald-100 ring-1 ring-emerald-300/30">
+    <span class="grid h-14 w-14 place-items-center rounded-2xl bg-emas-400/20 text-emas-100 ring-1 ring-emas-300/40">
       <?= ikon('kotak', 'h-7 w-7') ?>
     </span>
     <div class="min-w-0 flex-1">
       <h1 class="text-xl font-black sm:text-2xl">Selamat datang, <?= e((string) $pemilih['nama']) ?>!</h1>
-      <p class="mt-1 text-sm text-brand-100">
+      <p class="mt-1 text-xs font-semibold uppercase tracking-wide text-brand-200">
+        <?= e(setting('nama_pemilihan')) ?> &middot; <?= e(setting('nama_lembaga')) ?>
+      </p>
+      <p class="mt-2 text-sm text-brand-100">
         Pelajari visi, misi, dan program setiap pasangan calon, lalu tekan <b>PILIH PASLON</b> pada pilihan Anda.
         Suara hanya dapat diberikan satu kali dan bersifat <b>rahasia</b>.
       </p>
@@ -55,7 +58,7 @@ page_top('Pilih Pasangan Calon', ['shell' => 'publik', 'aksi' => $aksiKanan]);
 <?php if (!$paslon): ?>
   <div class="notis-kuning mt-6">
     <?= ikon('info') ?>
-    <p>Belum ada pasangan calon yang dibuka oleh panitia. Silakan hubungi panitia OSIS.</p>
+    <p>Belum ada pasangan calon yang dibuka oleh panitia. Silakan hubungi panitia <?= e(istilah_kegiatan()) ?>.</p>
   </div>
 <?php else: ?>
 
@@ -239,7 +242,7 @@ page_top('Pilih Pasangan Calon', ['shell' => 'publik', 'aksi' => $aksiKanan]);
 <p class="mx-auto mt-8 max-w-3xl rounded-2xl bg-white px-4 py-3 text-center text-xs text-slate-500 ring-1 ring-slate-200">
   <?= ikon('kunci', 'h-4 w-4 inline') ?>
   Sistem hanya mencatat <b>bahwa</b> Anda sudah memilih, bukan <b>siapa</b> yang Anda pilih.
-  Kerahasiaan pilihan dijamin oleh panitia OSIS.
+  Kerahasiaan pilihan dijamin oleh panitia <?= e(istilah_kegiatan()) ?>.
 </p>
 
 <?php page_bottom(['shell' => 'publik']); ?>

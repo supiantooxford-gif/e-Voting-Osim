@@ -34,23 +34,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     } elseif ($ketik !== 'HAPUS') {
         $galat[] = 'Ketik HAPUS (huruf besar) pada kolom konfirmasi untuk melanjutkan.';
     } else {
+        /* Reset SELALU dibatasi pada lembaga yang sedang dikelola: data lembaga
+           lain tidak boleh tersentuh, sekalipun tombolnya salah tekan. */
+        $lembagaId = lembaga_id_aktif();
         $pdo = pdo();
         try {
             $pdo->exec('BEGIN IMMEDIATE');
             if ($jenis === 'suara') {
-                jalankan('DELETE FROM suara');
-                jalankan('UPDATE pemilih SET sudah = 0, waktu = NULL');
+                jalankan('DELETE FROM suara WHERE lembaga_id = ?', [$lembagaId]);
+                jalankan('UPDATE pemilih SET sudah = 0, waktu = NULL WHERE lembaga_id = ?', [$lembagaId]);
             } elseif ($jenis === 'semua') {
-                jalankan('DELETE FROM suara');
-                jalankan('DELETE FROM pemilih');
-                jalankan('DELETE FROM paslon');
+                jalankan('DELETE FROM suara WHERE lembaga_id = ?', [$lembagaId]);
+                jalankan('DELETE FROM pemilih WHERE lembaga_id = ?', [$lembagaId]);
+                jalankan('DELETE FROM paslon WHERE lembaga_id = ?', [$lembagaId]);
             } else { /* contoh */
-                jalankan('DELETE FROM suara');
-                jalankan('DELETE FROM pemilih');
-                jalankan('DELETE FROM paslon');
-                /* Tanda "sudah diisi contoh" dilepas agar data contoh dibuat ulang. */
-                jalankan("DELETE FROM pengaturan WHERE kunci = 'seed_contoh'");
-                db_isi_contoh($pdo);
+                jalankan('DELETE FROM suara WHERE lembaga_id = ?', [$lembagaId]);
+                jalankan('DELETE FROM pemilih WHERE lembaga_id = ?', [$lembagaId]);
+                jalankan('DELETE FROM paslon WHERE lembaga_id = ?', [$lembagaId]);
+                db_isi_contoh($pdo, $lembagaId);
             }
             $pdo->exec('COMMIT');
             catat_aktivitas('reset_data', $pilihan[$jenis]);
@@ -65,11 +66,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 $stat   = statistik();
 $integ  = integritas_data();
-$jPaslon = (int) nilai('SELECT COUNT(*) FROM paslon');
+$jPaslon = (int) nilai('SELECT COUNT(*) FROM paslon WHERE lembaga_id = ?', [lembaga_id_aktif()]);
 
 page_top('Reset Data', [
     'shell' => 'admin',
-    'sub'   => 'Kosongkan perolehan suara atau seluruh data pemilihan',
+    'sub'   => 'Hanya untuk ' . setting('nama_lembaga') . ' &mdash; lembaga lain tidak tersentuh',
     'aksi'  => '<a href="hasil.php" class="tombol-putih tombol-kecil">' . ikon('chart', 'h-4 w-4') . ' Papan Hasil</a>',
 ]);
 ?>

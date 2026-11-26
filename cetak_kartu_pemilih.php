@@ -19,7 +19,7 @@ require_once __DIR__ . '/inc/layout.php';
 
 require_admin();
 
-/* Seluruh keluaran ditampung untuk penyesuaian istilah OSIS/OSIM. */
+/* Seluruh keluaran ditampung untuk penyesuaian istilah (OSIS lama -> OSIM). */
 ob_start();
 
 $f       = dpt_filter_get();
@@ -99,14 +99,14 @@ $namaLembaga = setting('nama_lembaga');
   }
   .kartu-kepala {
     display: flex; align-items: center; gap: 6px; padding: 5px 8px;
-    background: linear-gradient(120deg, #312e81, #4f46e5); color: #fff;
+    background: linear-gradient(120deg, #065f46, #b45309); color: #fff;
   }
   .kartu-kepala .lambang {
     display: grid; place-items: center; width: 22px; height: 22px; flex: 0 0 auto;
     border-radius: 6px; background: rgb(255 255 255 / .2); font-size: 11px; font-weight: 800;
   }
   .kartu-kepala .teks { min-width: 0; }
-  .kartu-kepala .sekolah {
+  .kartu-kepala .madrasah {
     font-size: 8.4px; font-weight: 800; text-transform: uppercase; letter-spacing: .02em;
     white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   }
@@ -227,7 +227,7 @@ $namaLembaga = setting('nama_lembaga');
         <header class="kartu-kepala">
           <span class="lambang"><?= e($inisial) ?></span>
           <span class="teks">
-            <span class="sekolah"><?= e($namaLembaga) ?></span>
+            <span class="madrasah"><?= e($namaLembaga) ?></span>
             <span class="jenis">Kartu Pemilih</span>
           </span>
         </header>

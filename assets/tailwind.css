@@ -1,5 +1,5 @@
 /* ==========================================================================
-   Sumber Tailwind CSS — E-Voting OSIS
+   Sumber Tailwind CSS — E-Voting OSIM
    Kompilasi: npx tailwindcss -i assets/tailwind.css -o assets/app.css --minify
    ========================================================================== */
 @tailwind base;
@@ -7,9 +7,17 @@
 @tailwind utilities;
 
 @layer base {
-  /* Latar belakang halaman aplikasi */
+  /* Latar belakang halaman aplikasi: PUTIH BERSIH (permintaan pemilik v2.3.0) */
   body {
-    @apply bg-slate-50 text-slate-800 antialiased;
+    @apply bg-white text-slate-800 antialiased;
+  }
+
+  /* Elemen ber-atribut [hidden] WAJIB benar-benar tersembunyi.
+     Tanpa aturan ini kelas komponen ber-`display` (flex/grid) mengalahkan
+     `[hidden]` bawaan peramban, sehingga penyaring daftar (kartu lembaga,
+     pesan "tidak cocok", baris tabel) tidak pernah menyembunyikan apa pun. */
+  [hidden] {
+    display: none !important;
   }
 
   /* Kanvas Chart.js WAJIB dibatasi max-width: Chart.js menulis lebar inline
@@ -235,6 +243,165 @@
     @apply mt-auto inline-flex w-full select-none items-center justify-center gap-2 rounded-b-3xl bg-emerald-600
            px-6 py-4 text-base font-black tracking-wide text-white transition duration-200 hover:bg-emerald-700
            focus:outline-none focus-visible:ring-4 focus-visible:ring-emerald-200;
+  }
+
+
+  /* ================================================== HALAMAN DEPAN (depan) */
+  /* Halaman depan = daftar kartu madrasah. Tema v2.3.0: HIJAU dengan aksen
+     KUNING KEEMASAN di atas latar PUTIH BERSIH. Semua dekorasi hanya CSS
+     (tanpa gambar luar) supaya tetap ringan dipakai dari HP siswa. */
+
+  /* ---------------------------------------------------------------- Hero */
+  .depan-hero {
+    @apply relative isolate overflow-hidden rounded-[2rem] bg-gradient-to-br from-brand-800 via-brand-700 to-brand-950
+           px-6 py-9 text-white shadow-naik ring-1 ring-emas-300/30 sm:px-10 sm:py-12;
+  }
+  /* Kisi halus yang memudar — memberi kesan "kertas suara" modern. */
+  .depan-hero-kisi {
+    background-image:
+      linear-gradient(to right, rgb(255 255 255 / .055) 1px, transparent 1px),
+      linear-gradient(to bottom, rgb(255 255 255 / .055) 1px, transparent 1px);
+    background-size: 46px 46px;
+    -webkit-mask-image: radial-gradient(ellipse at 72% 8%, #000 0%, transparent 74%);
+    mask-image: radial-gradient(ellipse at 72% 8%, #000 0%, transparent 74%);
+  }
+  .depan-sorot { @apply pointer-events-none absolute rounded-full blur-3xl; }
+
+  /* Label kecil di atas judul hero */
+  .depan-eyebrow {
+    @apply inline-flex items-center gap-2 rounded-full bg-emas-400/15 px-3 py-1 text-[11px] font-bold uppercase
+           tracking-[.18em] text-emas-100 ring-1 ring-emas-300/40;
+  }
+  .depan-judul {
+    @apply mt-4 text-[2rem] font-black leading-[1.08] tracking-tight sm:text-[2.6rem] lg:text-[2.9rem];
+  }
+  .depan-ket {
+    @apply mt-3.5 max-w-xl text-sm leading-relaxed text-brand-100/90;
+  }
+
+  /* Kotak cari di dalam hero (kaca) */
+  /* ------------------------------------------------- Visual surat suara */
+  /* Hiasan kartu suara (CSS murni) pada kolom kanan hero. */
+  .depan-surat {
+    @apply relative w-full max-w-[19rem] rotate-[-4deg] rounded-2xl bg-white p-5 text-slate-800 shadow-naik
+           ring-1 ring-white/40 transition duration-500;
+  }
+  .depan-surat:hover { @apply rotate-0; }
+  .depan-surat-baris {
+    @apply flex items-center gap-3 rounded-xl bg-slate-50 px-3 py-2.5 ring-1 ring-slate-200;
+  }
+  .depan-surat-kotak {
+    @apply grid h-5 w-5 shrink-0 place-items-center rounded-md border border-slate-300 bg-white;
+  }
+  .depan-segel {
+    @apply absolute -right-4 -top-4 grid h-14 w-14 place-items-center rounded-full bg-emas-500 text-white
+           shadow-lg ring-4 ring-emas-500/25;
+  }
+
+  /* ------------------------------------------ Panel logo halaman depan */
+  /* Permintaan pemilik v2.4.0: logo Komisi Pemilihan OSIM tampil pada panel
+     tersendiri di kolom KIRI daftar kartu lembaga (logo diunggah Super Admin
+     lewat menu Halaman Depan). Latar hijau gelap + lingkaran emas, senada
+     dengan kepala kartu lembaga. */
+  .depan-logo-panel {
+    @apply relative isolate overflow-hidden rounded-[2rem] bg-gradient-to-br from-brand-800 via-brand-800 to-brand-950
+           px-5 py-7 text-center text-white shadow-naik ring-1 ring-emas-300/30 sm:px-6 sm:py-8;
+  }
+  .depan-logo-hias {
+    @apply pointer-events-none absolute left-1/2 top-4 -z-10 h-56 w-56 -translate-x-1/2 rounded-full
+           bg-emas-400/25 blur-3xl;
+  }
+  /* Bingkai logo: lingkaran putih + cincin emas supaya lambang (apa pun latar
+     aslinya) tetap terbaca utuh — `object-contain`, tidak dipotong. */
+  .depan-logo-bingkai {
+    @apply relative mx-auto grid aspect-square w-full max-w-[15rem] place-items-center overflow-hidden
+           rounded-full bg-white p-3.5 shadow-lg ring-4 ring-emas-400/60;
+  }
+  .depan-logo-bingkai img {
+    @apply h-full w-full object-contain;
+  }
+  /* Monogram bawaan bila Super Admin belum mengunggah logo. */
+  .depan-logo-kosong {
+    @apply grid h-full w-full place-items-center rounded-full bg-brand-800 text-3xl font-black
+           tracking-[.16em] text-emas-300;
+  }
+  .depan-logo-label {
+    @apply mt-6 text-[11px] font-bold uppercase tracking-[.26em] text-emas-100/90;
+  }
+  .depan-logo-nama {
+    @apply mt-1 text-2xl font-black uppercase leading-none tracking-[.14em] text-emas-300;
+  }
+  .depan-logo-ket {
+    @apply mx-auto mt-3 max-w-[16rem] text-[11px] leading-relaxed text-brand-100/85;
+  }
+
+  /* ------------------------------------------------------- Kartu lembaga */  /* Jarak antar kartu diatur `gap` pada grid (minimal 20px) — jangan
+     mengandalkan margin anak terakhir. */
+  .lembaga-kartu {
+    @apply relative flex flex-col overflow-hidden rounded-3xl bg-white shadow-soft ring-1 ring-slate-200/80
+           transition duration-300 hover:-translate-y-1 hover:shadow-naik hover:ring-emas-300;
+  }
+  /* Garis aksen tipis di tepi atas kartu */
+  .lembaga-kartu-aksen {
+    @apply absolute inset-x-0 top-0 z-10 h-1 bg-gradient-to-r from-brand-600 via-emas-400 to-brand-500;
+  }
+  .lembaga-kartu-kepala {
+    @apply flex items-start gap-3 bg-gradient-to-br from-brand-800 via-brand-800 to-brand-950 p-5 text-white;
+  }
+  .lembaga-inisial {
+    @apply grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-white/[.14] text-sm font-black
+           tracking-wide text-white ring-1 ring-white/25;
+  }
+  /* LOGO madrasah (Komisi Pemilihan OSIM): kotak HITAM, gambar utuh di tengah
+     (permintaan pemilik v2.3.1). Tanpa logo, inisial nama tampil di dalamnya. */
+  .lembaga-logo {
+    @apply grid h-16 w-16 shrink-0 place-items-center overflow-hidden rounded-2xl bg-black
+           text-sm font-black tracking-wide text-emas-300 ring-1 ring-emas-400/50;
+  }
+  .lembaga-logo img {
+    @apply h-full w-full object-contain p-1;
+  }
+  /* Nama madrasah pada kartu: KUNING KEEMASAN di atas kepala kartu hijau. */
+  .lembaga-nama {
+    @apply mt-2 text-base font-black leading-snug text-emas-300 sm:text-[17px];
+  }
+  .lembaga-jenis {
+    @apply inline-flex items-center rounded-full bg-emas-400/20 px-2 py-0.5 text-[10px] font-bold uppercase
+           tracking-[.1em] text-emas-100 ring-1 ring-emas-300/40;
+  }
+  .lembaga-npsn {
+    @apply inline-flex items-center rounded-full bg-white/10 px-2 py-0.5 font-mono text-[10px] font-semibold
+           text-brand-100 ring-1 ring-white/15;
+  }
+  /* Kotak angka di badan kartu: Paslon & DPT berlatar KUNING KEEMASAN
+     (permintaan pemilik v2.3.1). */
+  .lembaga-stat {
+    @apply rounded-2xl bg-emas-50 p-3.5 ring-1 ring-emas-200;
+  }
+  .lembaga-stat-label {
+    @apply flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-[.08em] text-emas-800/80;
+  }
+  .lembaga-stat-angka {
+    @apply mt-1 text-xl font-black leading-none text-emas-700;
+  }
+  .lembaga-catatan {
+    @apply rounded-xl bg-slate-50 px-3 py-2 text-center text-[11px] font-semibold text-slate-500 ring-1 ring-slate-200;
+  }
+
+  /* ----------------------------------------------------- Langkah & panel */
+  .depan-langkah {
+    @apply relative flex gap-3.5 rounded-2xl bg-slate-50/80 p-4 ring-1 ring-slate-200/80 transition
+           hover:bg-white hover:shadow-soft;
+  }
+  .depan-langkah-nomor {
+    @apply grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-gradient-to-br from-brand-600 to-emas-500
+           text-sm font-black text-white shadow-sm;
+  }
+  .depan-panel {
+    @apply relative overflow-hidden rounded-3xl bg-white p-5 shadow-soft ring-1 ring-slate-200/80 sm:p-6;
+  }
+  .depan-trust {
+    @apply flex items-center gap-3 rounded-2xl bg-white/70 px-4 py-3.5 ring-1 ring-slate-200/80 backdrop-blur;
   }
 
   /* --------------------------------------------------------------- Hasil */

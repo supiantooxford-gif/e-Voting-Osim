@@ -23,35 +23,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if ($aksi === 'simpan_identitas') {
         $tab = 'identitas';
         $namaPemilihan = batas_teks($_POST['nama_pemilihan'] ?? '', 150);
-        $namaLembaga   = batas_teks($_POST['nama_lembaga'] ?? '', 150);
         $periode       = batas_teks($_POST['periode'] ?? '', 80);
         $tanggal       = batas_teks($_POST['tanggal_pemilihan'] ?? '', 80);
 
         if ($namaPemilihan === '') { $galat[] = 'Nama pemilihan wajib diisi.'; }
-        if ($namaLembaga === '')   { $galat[] = 'Nama sekolah/madrasah wajib diisi.'; }
 
         if (!$galat) {
             set_setting('nama_pemilihan', $namaPemilihan);
-            set_setting('nama_lembaga', $namaLembaga);
             set_setting('periode', $periode);
             set_setting('tanggal_pemilihan', $tanggal);
             catat_aktivitas('pengaturan_identitas', 'Identitas pemilihan diperbarui');
             flash('ok', 'Identitas pemilihan disimpan.');
-            redirect('admin_pengaturan.php');
-        }
-    }
-
-    /* ---------------------------- Jenis lembaga ---------------------------- */
-    if ($aksi === 'simpan_jenis') {
-        $tab   = 'identitas';
-        $jenis = (string) ($_POST['jenis_lembaga'] ?? '');
-        if (!isset(JENIS_LEMBAGA_NAMA[$jenis])) {
-            $galat[] = 'Jenis lembaga tidak dikenali. Pilih Madrasah atau Sekolah Umum.';
-        } else {
-            set_setting('jenis_lembaga', $jenis);
-            catat_aktivitas('pengaturan_jenis', 'Jenis lembaga: ' . JENIS_LEMBAGA_NAMA[$jenis]);
-            flash('ok', 'Jenis lembaga disimpan: ' . JENIS_LEMBAGA_NAMA[$jenis] . '. Seluruh tulisan '
-                . 'OSIS kini otomatis memakai istilah ' . istilah_osis() . '.');
             redirect('admin_pengaturan.php');
         }
     }
@@ -137,10 +119,10 @@ page_top('Pengaturan & Keamanan', [
         <input class="isian" type="text" id="nama_pemilihan" name="nama_pemilihan" required maxlength="150"
                value="<?= e(setting('nama_pemilihan')) ?>">
       </div>
-      <div>
-        <label class="label" for="nama_lembaga">Nama Sekolah / Madrasah</label>
-        <input class="isian" type="text" id="nama_lembaga" name="nama_lembaga" required maxlength="150"
-               value="<?= e(setting('nama_lembaga')) ?>">
+      <div class="rounded-2xl bg-slate-50 p-3.5 ring-1 ring-slate-200">
+        <p class="label !mb-1">Nama Madrasah</p>
+        <p class="text-sm font-bold text-slate-800"><?= e(setting('nama_lembaga')) ?></p>
+        <p class="catatan-kecil">Nama lembaga diatur oleh <b>Super Admin</b> aplikasi.</p>
       </div>
       <div class="grid gap-4 sm:grid-cols-2">
         <div>
@@ -157,38 +139,31 @@ page_top('Pengaturan & Keamanan', [
       <button type="submit" class="tombol-utama w-full"><?= ikon('cek', 'h-4 w-4') ?> Simpan Identitas</button>
     </form>
 
-    <!-- ======================= JENIS LEMBAGA ======================= -->
+    <!-- ======================= IDENTITAS LEMBAGA ======================= -->
     <div class="mt-5 border-t border-slate-200 pt-5" id="jenisLembaga">
-      <h3 class="kartu-judul">Jenis Lembaga</h3>
+      <h3 class="kartu-judul">Lembaga</h3>
       <p class="kartu-ket">
-        Menentukan istilah yang dipakai seluruh aplikasi. Bila memilih <b>Madrasah</b>, semua tulisan
-        <b>OSIS</b> berubah menjadi <b>OSIM</b> (dan sebaliknya pada Sekolah Umum).
+        Aplikasi ini khusus <b>Madrasah</b>; istilah kegiatan yang dipakai seluruh halaman adalah
+        <b><?= e(ISTILAH) ?></b>.
       </p>
 
-      <form method="post" action="admin_pengaturan.php" class="mt-3 space-y-3" data-jenis-lembaga
-            data-tersimpan="<?= e(jenis_lembaga()) ?>">
-        <?= csrf_field() ?>
-        <input type="hidden" name="aksi" value="simpan_jenis">
-        <div>
-          <label class="label" for="jenis_lembaga">Jenis Lembaga</label>
-          <select class="isian" id="jenis_lembaga" name="jenis_lembaga" required>
-            <?php foreach (JENIS_LEMBAGA_NAMA as $kunci => $label): ?>
-              <option value="<?= e($kunci) ?>" <?= jenis_lembaga() === $kunci ? 'selected' : '' ?>>
-                <?= e($label) ?>
-              </option>
-            <?php endforeach; ?>
-          </select>
-          <p class="catatan-kecil">
-            Istilah yang sedang berlaku: <b><?= e(istilah_osis()) ?></b>
-            (contoh: &ldquo;Pemilihan Ketua &amp; Wakil Ketua <?= e(istilah_osis()) ?>&rdquo;).
-          </p>
-        </div>
-        <button type="submit" class="tombol-utama w-full">
-          <?= ikon('cek', 'h-4 w-4') ?> Simpan Jenis Lembaga
-        </button>
-        <p class="hidden rounded-xl bg-amber-50 px-3.5 py-2.5 text-xs font-semibold text-amber-800 ring-1 ring-amber-200"
-           data-jenis-catatan>Pilihan berbeda dari yang tersimpan &mdash; tekan tombol simpan untuk menerapkan.</p>
-      </form>
+      <div class="mt-3 rounded-2xl bg-brand-50 p-4 ring-1 ring-brand-200">
+        <p class="text-sm font-bold text-brand-900"><?= e(jenis_lembaga_label()) ?></p>
+        <p class="mt-1 text-xs font-semibold text-brand-800">
+          Istilah yang berlaku pada lembaga ini: <b><?= e(istilah_kegiatan()) ?></b>
+          (contoh: &ldquo;Pemilihan Ketua &amp; Wakil Ketua <?= e(istilah_kegiatan()) ?>&rdquo;).
+        </p>
+      </div>
+
+      <?php if (is_super()): ?>
+        <a href="super_lembaga.php?edit=<?= (int) lembaga_id_aktif() ?>#formLembaga" class="tombol-putih mt-3 w-full">
+          <?= ikon('lembaga', 'h-4 w-4') ?> Ubah Nama Madrasah di Panel Super Admin
+        </a>
+      <?php else: ?>
+        <p class="catatan-kecil">
+          Ingin mengubah nama lembaga? Hubungi <b>Super Admin</b> aplikasi.
+        </p>
+      <?php endif; ?>
     </div>
   </section>
 

@@ -1,17 +1,46 @@
 <?php
 /**
- * index.php — HALAMAN MASUK.
+ * index.php — HALAMAN DEPAN: DAFTAR MADRASAH (multi lembaga).
  * ---------------------------------------------------------------------------
- * Dua peran dalam satu halaman:
- *   - Pemilih (siswa) : NISN + Token unik dari panitia.
- *   - Panitia/Pembina : nama pengguna + kata sandi.
- * Tanpa JavaScript kedua panel tetap tampil & formulirnya tetap bisa dikirim.
+ * Permintaan pemilik: pemilih memilih lembaganya lewat DAFTAR KARTU di halaman
+ * depan, lalu menekan Masuk. Setelah itu barulah NISN/NIK + token dimasukkan di
+ * halaman masuk lembaga tersebut (masuk.php?lembaga=ID).
+ *
+ * Tampilan (v2.3.0): hijau + kuning keemasan di atas latar putih bersih.
+ * Judul & keterangan hero dapat diubah Super Admin lewat menu Halaman Depan
+ * (super_depan.php) — jangan menulis teks itu mati di sini lagi.
+ *
+ * Aplikasi ini khusus madrasah; istilah kegiatan selalu OSIM.
  */
 declare(strict_types=1);
 require_once __DIR__ . '/inc/init.php';
 require_once __DIR__ . '/inc/layout.php';
 
+/* =========================================================================
+   ALAMAT KHUSUS HALAMAN MASUK SUPER ADMIN:  /<aplikasi>/admin
+   -------------------------------------------------------------------------
+   Server aplikasi ini (Caddy) menyerahkan setiap jalur yang BUKAN berkas nyata
+   ke index.php, jadi alamat itu tidak memerlukan aturan server / .htaccess.
+   Alamat ini sengaja TANPA garis miring di akhir supaya seluruh tautan relatif
+   pada halaman (aset, formulir, pengalihan) menuju AKAR APLIKASI — bukan ke
+   folder /admin/ — dan tetap benar bila aplikasi dipasang pada domain sendiri.
+   ========================================================================= */
+$jalur = jalur_permintaan();
+if (jalur_sama($jalur, 'admin')) {
+    /* /…/admin/ -> /…/admin (alamat resmi tanpa garis miring akhir). */
+    if (substr($jalur, -1) === '/') {
+        header('Location: ' . rtrim($jalur, '/'), true, 301);
+        exit;
+    }
+    define('EV_SUPER_MASUK', true);
+    require __DIR__ . '/super_masuk.php';
+    exit;
+}
+
 /* Sudah masuk? Langsung ke halaman yang sesuai. */
+if (is_super()) {
+    redirect('super.php');
+}
 if (is_admin()) {
     redirect('admin.php');
 }
@@ -19,183 +48,243 @@ if (pemilih_kini() !== false) {
     redirect('pilih.php');
 }
 
-$tab = ($_GET['tab'] ?? '') === 'panitia' ? 'panitia' : 'pemilih';
+/* Halaman depan selalu lintas lembaga. */
 
-/* Foto pasangan calon untuk slide di halaman masuk (HANYA foto — permintaan
-   pemilik). Kartu statistik & kartu fitur yang lama DIHAPUS dari blok merah. */
-$paslonTampil = paslon_list();
+$lembaga = lembaga_semua(false);
+$stat    = lembaga_statistik_semua();
+$jumlah  = count($lembaga);
 
-page_top('Masuk', ['shell' => 'publik', 'aksi' => hasil_publik()
-    ? '<a href="hasil.php" class="tombol-putih tombol-kecil">' . ikon('chart', 'h-4 w-4') . ' Hasil Sementara</a>'
-    : '']);
+/* Teks hero dapat diubah Super Admin (menu Halaman Depan). */
+$depanJudul = trim(setting('depan_judul'));$depanKet   = trim(setting('depan_ket'));
+if ($depanJudul === '') {
+    $depanJudul = PENGATURAN_GLOBAL_BAWAAN['depan_judul'];
+}
+if ($depanKet === '') {
+    $depanKet = PENGATURAN_GLOBAL_BAWAAN['depan_ket'];
+}
+
+/* Logo Komisi Pemilihan OSIM (diunggah Super Admin lewat menu Halaman Depan).
+   Belum diunggah = panel logo memakai monogram OSIM bawaan. */
+$logoDepan = depan_logo();
+
+/* Tanpa tombol di bilah atas: halaman masuk Super Admin punya alamat sendiri
+   (/<aplikasi>/admin) dan tidak ditautkan dari halaman depan (permintaan pemilik). */
+page_top('Pilih Madrasah', ['shell' => 'publik']);
 ?>
 
-<div class="grid gap-6 lg:grid-cols-[1.1fr_minmax(0,27rem)] lg:gap-10">
+<!-- ================================ HERO ================================ -->
+<section class="depan-hero animate-masuk">
+  <span class="depan-hero-kisi pointer-events-none absolute inset-0 -z-10" aria-hidden="true"></span>
+  <span class="depan-sorot -right-24 -top-28 -z-10 h-72 w-72 bg-emas-400/25" aria-hidden="true"></span>
+  <span class="depan-sorot -bottom-32 left-1/4 -z-10 h-72 w-72 bg-brand-400/25" aria-hidden="true"></span>
 
-  <!-- ======================== KOLOM KIRI: PENJELASAN ======================== -->
-  <section class="animate-masuk">
-    <div class="relative overflow-hidden rounded-3xl bg-gradient-to-br from-brand-800 via-brand-900 to-brand-950 p-6 text-white shadow-naik sm:p-9">
-      <span class="pointer-events-none absolute -right-16 -top-20 h-64 w-64 rounded-full bg-emerald-400/20 blur-3xl"></span>
-      <span class="pointer-events-none absolute -bottom-24 -left-12 h-56 w-56 rounded-full bg-brand-400/20 blur-3xl"></span>
+  <div class="grid items-center gap-10 lg:grid-cols-[minmax(0,1fr)_auto]">
+    <!-- ---------------------------- Kolom teks ---------------------------- -->
+    <div class="min-w-0">
+      <span class="depan-eyebrow"><?= ikon('kotak', 'h-3.5 w-3.5') ?> Pemilihan Elektronik</span>
 
-      <span class="pill bg-white/15 text-white ring-white/25"><?= ikon('kotak', 'h-4 w-4') ?> Pemilihan Elektronik</span>
-      <h1 class="mt-4 text-3xl font-black leading-tight sm:text-4xl"><?= e(setting('nama_pemilihan')) ?></h1>
-      <p class="mt-2 text-sm font-semibold text-brand-100"><?= e(setting('nama_lembaga')) ?></p>
-      <p class="mt-1 text-sm text-brand-200"><?= e(setting('periode')) ?> &middot; <?= e(setting('tanggal_pemilihan')) ?></p>
+      <h1 class="depan-judul"><?= nl2br(e($depanJudul)) ?></h1>
+      <p class="depan-ket"><?= nl2br(e($depanKet)) ?></p>
+      <span class="mt-6 block h-1 w-24 rounded-full bg-gradient-to-r from-emas-400 to-emas-600" aria-hidden="true"></span>
+    </div>
 
-      <!-- ====== FOTO PASANGAN CALON: SEMUA FOTO TAMPIL SEKALIGUS ======
-           Permintaan pemilik: bukan slider — semua foto paslon langsung tampil
-           bersamaan, jumlah kolomnya mengikuti banyaknya paslon supaya ukuran
-           fotonya menyesuaikan ruang yang tersedia pada kartu biru ini. -->
-      <?php
-      $jmlPaslon   = count($paslonTampil);
-      $kolomBesar  = min(3, max(1, $jmlPaslon));   /* layar lebar: maks 3 per baris */
-      $kolomSedang = min(2, max(1, $jmlPaslon));   /* tablet: maks 2 per baris      */
+    <!-- ------------------- Hiasan: kartu surat suara (CSS) ------------------- -->
+    <div class="relative hidden justify-self-end pr-6 lg:block" aria-hidden="true">
+      <span class="depan-sorot -left-10 top-6 h-40 w-40 bg-emas-400/25"></span>
+      <div class="depan-surat">
+        <span class="depan-segel"><?= ikon('cek', 'h-7 w-7') ?></span>
+        <p class="text-[10px] font-black uppercase tracking-[.22em] text-brand-700">Surat Suara</p>
+        <p class="mt-1 text-sm font-black leading-snug text-slate-900">Ketua &amp; Wakil Ketua<br><?= e(ISTILAH) ?></p>
+        <div class="mt-4 space-y-2">
+          <?php foreach ([1, 2, 3] as $n): ?>
+            <div class="depan-surat-baris">
+              <span class="grid h-6 w-6 shrink-0 place-items-center rounded-lg bg-brand-800 text-[10px] font-black text-white"><?= $n ?></span>
+              <span class="h-2 flex-1 rounded-full bg-slate-200"></span>
+              <span class="depan-surat-kotak"><?= $n === 1 ? '<span class="h-2.5 w-2.5 rounded-sm bg-emas-500"></span>' : '' ?></span>
+            </div>
+          <?php endforeach; ?>
+        </div>
+        <p class="mt-4 rounded-xl bg-emas-50 px-3 py-2 text-center text-[10px] font-bold text-emas-800 ring-1 ring-emas-200">
+          RAHASIA &middot; SATU PEMILIH SATU SUARA
+        </p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ LOGO KOMISI PEMILIHAN OSIM + DAFTAR KARTU MADRASAH ============ -->
+<!-- Permintaan pemilik v2.4.0: logo Komisi Pemilihan OSIM menempati kolom KIRI
+     (tanda biru pada tangkapan layar pemilik), sedangkan daftar kartu lembaga
+     berada pada kolom KANAN (tanda merah). -->
+<section class="mt-10 grid items-start gap-6 lg:grid-cols-[minmax(0,19rem)_minmax(0,1fr)] xl:gap-8"
+         aria-label="Logo Komisi Pemilihan OSIM dan daftar madrasah">
+
+  <!-- ------------------------- Kiri: panel logo ------------------------- -->
+  <aside class="depan-logo-panel animate-masuk lg:sticky lg:top-6" aria-label="Logo Komisi Pemilihan OSIM">
+    <span class="depan-logo-hias" aria-hidden="true"></span>
+    <span class="depan-logo-bingkai">
+      <?php if ($logoDepan !== null): ?>
+        <img src="<?= e($logoDepan) ?>" alt="Logo Komisi Pemilihan OSIM">
+      <?php else: ?>
+        <span class="depan-logo-kosong">OSIM</span>
+      <?php endif; ?>
+    </span>
+    <p class="depan-logo-label">Komisi Pemilihan</p>
+    <p class="depan-logo-nama">OSIM</p>
+    <p class="depan-logo-ket">
+      Penyelenggara pemilihan ketua &amp; wakil ketua OSIM secara jujur, adil, dan demokratis.
+    </p>
+  </aside>
+
+  <!-- ---------------------- Kanan: daftar kartu ------------------------ -->
+  <div class="min-w-0">
+  <div class="flex justify-end">
+    <span class="pill-abu"><?= ikon('lembaga', 'h-3.5 w-3.5') ?>
+      <span data-cari-jumlah><?= e(angka($jumlah)) ?></span> lembaga
+    </span>
+  </div>
+
+  <?php if (!$lembaga): ?>
+    <div class="kartu kartu-pad mt-4 text-center">
+      <span class="mx-auto grid h-16 w-16 place-items-center rounded-2xl bg-brand-50 text-brand-600 ring-1 ring-brand-100">
+        <?= ikon('lembaga', 'h-8 w-8') ?>
+      </span>
+      <h3 class="mt-4 text-lg font-black text-slate-900">Belum ada madrasah</h3>
+      <p class="mx-auto mt-1 max-w-md text-sm text-slate-500">
+        Super Admin belum menambahkan lembaga mana pun. Bila Anda pengelola aplikasi, masuk lewat
+        halaman Super Admin untuk menambahkan madrasah pertama.
+      </p>
+      <a href="admin" class="tombol-utama mt-5"><?= ikon('kunci', 'h-4 w-4') ?> Masuk Super Admin</a>
+    </div>
+  <?php else: ?>
+    <div class="mt-4 grid gap-5 sm:grid-cols-2" data-daftar-lembaga>
+      <?php foreach ($lembaga as $i => $l):
+          $id       = (int) $l['id'];
+          $s        = $stat[$id] ?? ['paslon_aktif' => 0, 'dpt' => 0, 'masuk' => 0, 'turnout' => 0.0];
+          $jenis    = lembaga_jenis_sah((string) $l['jenis']);
+          $istilah  = lembaga_istilah($jenis);
+          $buka     = hasil_publik($id);
+          $logo     = lembaga_logo($l);
+          $adaPaslon = (int) $s['paslon_aktif'] > 0;
       ?>
-      <div class="mt-6" aria-label="Foto pasangan calon">
-        <?php if ($paslonTampil): ?>
-          <div class="foto-grid<?= $jmlPaslon === 1 ? ' satu' : '' ?>"
-               style="--kolom:<?= (int) $kolomBesar ?>;--kolom-2:<?= (int) $kolomSedang ?>">
-            <?php foreach ($paslonTampil as $i => $p):
-                $foto = foto_paslon($p); ?>
-              <figure class="foto-paslon">
-                <?php if ($foto !== null): ?>
-                  <img src="<?= e($foto) ?>" alt="Foto pasangan calon nomor <?= (int) $p['nomor'] ?>"
-                       loading="<?= $i === 0 ? 'eager' : 'lazy' ?>"
-                       onerror="this.classList.add('hidden')">
-                <?php else: ?>
-                  <div class="grid h-full w-full place-items-center bg-gradient-to-br from-brand-700 to-brand-900">
-                    <span class="grid h-16 w-16 place-items-center rounded-full bg-white/15 text-xl font-black ring-2 ring-white/25">
-                      <?= e(strtoupper(substr((string) $p['ketua'], 0, 1) . substr((string) $p['wakil'], 0, 1))) ?>
-                    </span>
-                  </div>
+        <article class="lembaga-kartu animate-masuk" style="animation-delay: <?= $i * 55 ?>ms"
+                 data-lembaga-kartu>
+          <span class="lembaga-kartu-aksen" aria-hidden="true"></span>
+
+          <!-- Kepala kartu: LOGO madrasah (kotak hitam) + nama berwarna emas -->
+          <div class="lembaga-kartu-kepala">
+            <span class="lembaga-logo">
+              <?php if ($logo !== null): ?>
+                <img src="<?= e($logo) ?>" alt="Logo <?= e((string) $l['nama']) ?>" loading="lazy">
+              <?php else: ?>
+                <span class="text-sm font-black tracking-wide text-emas-300"><?= e(lembaga_inisial($l)) ?></span>
+              <?php endif; ?>
+            </span>
+            <div class="min-w-0 flex-1">
+              <div class="flex flex-wrap items-center gap-1.5">
+                <span class="lembaga-jenis"><?= e(JENIS_LEMBAGA_PENDEK[$jenis]) ?></span>
+                <?php if ($l['npsn']): ?>
+                  <span class="lembaga-npsn">NPSN <?= e((string) $l['npsn']) ?></span>
                 <?php endif; ?>
-                <figcaption class="foto-paslon-nomor">Paslon <?= (int) $p['nomor'] ?></figcaption>
-              </figure>
-            <?php endforeach; ?>
-          </div>
-          <p class="mt-3 text-center text-xs font-semibold text-brand-200">
-            <?= e(angka($jmlPaslon)) ?> pasangan calon &mdash; baca visi &amp; misinya di bilik suara
-            sebelum memberikan suara.
-          </p>
-        <?php else: ?>
-          <div class="grid aspect-[16/10] w-full place-items-center rounded-2xl bg-white/5 text-center ring-1 ring-white/10">
-            <div class="px-6">
-              <span class="mx-auto grid h-14 w-14 place-items-center rounded-2xl bg-white/10 text-brand-100"><?= ikon('paslon', 'h-7 w-7') ?></span>
-              <p class="mt-3 text-sm font-bold">Foto pasangan calon akan tampil di sini</p>
-              <p class="mt-1 text-xs text-brand-200">Panitia belum menambahkan pasangan calon.</p>
+              </div>
+              <h3 class="lembaga-nama"><?= e((string) $l['nama']) ?></h3>
+              <p class="mt-1 text-[11px] font-medium text-brand-200">
+                Pemilihan <?= e($istilah) ?><?= trim((string) ($l['alamat'] ?? '')) !== '' ? ' &middot; ' . e((string) $l['alamat']) : '' ?>
+              </p>
             </div>
           </div>
-        <?php endif; ?>
-      </div>
 
-      <!-- ============== CEPAT &middot; RAHASIA &middot; TRANSPARAN ============== -->
-      <div class="mt-6 grid gap-3 sm:grid-cols-3">
-        <?php
-        $keunggulan = [
-            ['ikon' => 'jam',    'judul' => 'Cepat',      'teks' => 'Satu ketukan, suara langsung tercatat.'],
-            ['ikon' => 'kunci',  'judul' => 'Rahasia',    'teks' => 'Surat suara tidak menyimpan identitas pemilih.'],
-            ['ikon' => 'chart',  'judul' => 'Transparan', 'teks' => 'Hasil dihitung otomatis & dapat dipantau.'],
-        ];
-        foreach ($keunggulan as $k): ?>
-          <div class="rounded-2xl bg-white/5 p-4 ring-1 ring-white/10">
-            <span class="grid h-9 w-9 place-items-center rounded-xl bg-emerald-500/25 text-emerald-100"><?= ikon($k['ikon'], 'h-5 w-5') ?></span>
-            <p class="mt-2 text-sm font-bold"><?= e($k['judul']) ?></p>
-            <p class="mt-1 text-xs leading-relaxed text-brand-200"><?= e($k['teks']) ?></p>
+          <!-- Badan kartu: angka ringkas + tombol masuk -->
+          <div class="flex flex-1 flex-col gap-4 p-5">
+            <dl class="grid grid-cols-2 gap-3">
+              <div class="lembaga-stat">
+                <dt class="lembaga-stat-label"><?= ikon('paslon', 'h-3.5 w-3.5') ?> Pasangan Calon</dt>
+                <dd class="lembaga-stat-angka"><?= e(angka((int) $s['paslon_aktif'])) ?></dd>
+              </div>
+              <div class="lembaga-stat">
+                <dt class="lembaga-stat-label"><?= ikon('dpt', 'h-3.5 w-3.5') ?> Pemilih Terdaftar</dt>
+                <dd class="lembaga-stat-angka"><?= e(angka((int) $s['dpt'])) ?></dd>
+              </div>
+            </dl>
+
+            <?php if (!$adaPaslon): ?>
+              <p class="rounded-xl bg-emas-50 px-3 py-2 text-[11px] font-semibold text-emas-800 ring-1 ring-emas-200">
+                Panitia belum menambahkan pasangan calon pada lembaga ini.
+              </p>
+            <?php endif; ?>
+
+            <div class="mt-auto space-y-2.5">
+              <a href="masuk.php?lembaga=<?= $id ?>" class="tombol-utama w-full py-3">
+                <?= ikon('kotak', 'h-5 w-5') ?> Masuk &amp; Beri Suara
+              </a>
+              <?php if ($buka): ?>
+                <a href="hasil.php?lembaga=<?= $id ?>" class="tombol-putih w-full">
+                  <?= ikon('chart', 'h-4 w-4') ?> Lihat Hasil Sementara
+                </a>
+              <?php else: ?>
+                <p class="lembaga-catatan">Hasil pemilihan belum dibuka untuk publik</p>
+              <?php endif; ?>
+            </div>
           </div>
-        <?php endforeach; ?>
+        </article>
+      <?php endforeach; ?>
+    </div>
+  <?php endif; ?>
+  </div>
+</section>
+
+<!-- ====================== CEPAT &middot; RAHASIA &middot; TRANSPARAN ====================== -->
+<section class="mt-8 grid gap-4 sm:grid-cols-3" aria-label="Keunggulan aplikasi">
+  <?php foreach ([
+      ['ikon' => 'jam',   'judul' => 'Cepat',      'teks' => 'Satu ketukan, suara langsung tercatat.'],
+      ['ikon' => 'kunci', 'judul' => 'Rahasia',    'teks' => 'Surat suara tidak menyimpan identitas pemilih.'],
+      ['ikon' => 'chart', 'judul' => 'Transparan', 'teks' => 'Hasil dihitung otomatis dan dapat dipantau.'],
+  ] as $k): ?>
+    <div class="depan-trust">
+      <span class="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-brand-50 text-brand-700 ring-1 ring-brand-100">
+        <?= ikon($k['ikon'], 'h-5 w-5') ?>
+      </span>
+      <div class="min-w-0">
+        <p class="text-sm font-black text-slate-900"><?= e($k['judul']) ?></p>
+        <p class="text-xs leading-relaxed text-slate-500"><?= e($k['teks']) ?></p>
       </div>
     </div>
+  <?php endforeach; ?>
+</section>
 
-    <!-- Petunjuk pemakaian -->
-    <div class="kartu kartu-pad mt-6">
-      <h2 class="kartu-judul">Cara memberikan suara</h2>
-      <ol class="mt-4 grid gap-3 sm:grid-cols-2">
-        <?php
-        $langkah = [
-            'Minta <b>token</b> kepada panitia ' . e(istilah_osis()) . ' (satu token untuk satu pemilih).',
-            'Masukkan <b>NISN</b> (siswa) atau <b>NIK</b> (guru) beserta token, lalu tekan Masuk.',
-            'Baca visi, misi, dan program tiap pasangan calon.',
-            'Tekan <b>PILIH PASLON</b>, konfirmasi, dan suara Anda langsung tersimpan.',
-        ];
-        foreach ($langkah as $i => $l): ?>
-          <li class="flex gap-3 rounded-2xl bg-slate-50 p-3.5 ring-1 ring-slate-200">
-            <span class="grid h-8 w-8 shrink-0 place-items-center rounded-xl bg-brand-600 text-sm font-black text-white"><?= $i + 1 ?></span>
-            <p class="text-sm leading-relaxed text-slate-600"><?= $l ?></p>
-          </li>
-        <?php endforeach; ?>
-      </ol>
+<!-- ========================= CARA MEMBERIKAN SUARA ========================= -->
+<section class="depan-panel mt-8">
+    <div class="flex items-start justify-between gap-3">
+      <div>
+        <h2 class="kartu-judul">Cara Memberikan Suara</h2>
+        <p class="kartu-ket">Empat langkah, kurang dari dua menit.</p>
+      </div>
+      <span class="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-brand-50 text-brand-700 ring-1 ring-brand-100">
+        <?= ikon('cek', 'h-5 w-5') ?>
+      </span>
     </div>
-  </section>
 
-  <!-- ========================= KOLOM KANAN: MASUK ========================= -->
-  <section id="masuk" class="animate-masuk">
-    <div class="kartu kartu-pad lg:sticky lg:top-24">
-      <div class="flex rounded-2xl bg-slate-100 p-1" role="tablist" aria-label="Pilih jenis pengguna"
-           data-tab-awal="<?= e($tab) ?>">
-        <button type="button" role="tab" data-tab="pemilih" aria-controls="panelPemilih"
-                class="flex-1 rounded-xl px-3 py-2 text-sm font-bold transition">Pemilih</button>
-        <button type="button" role="tab" data-tab="panitia" aria-controls="panelPanitia"
-                class="flex-1 rounded-xl px-3 py-2 text-sm font-bold transition">Panitia</button>
-      </div>
+    <ol class="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+      <?php foreach ([
+          'Pilih kartu <b>madrasah</b> Anda pada daftar di atas.',
+          'Masukkan <b>NISN</b> (siswa) atau <b>NIK</b> (guru &amp; tendik) beserta <b>token</b> dari panitia.',
+          'Baca <b>visi, misi, dan program</b> tiap pasangan calon sebelum memutuskan.',
+          'Tekan <b>PILIH PASLON</b>, konfirmasi, dan suara Anda langsung tersimpan.',
+      ] as $i => $t): ?>
+        <li class="depan-langkah">
+          <span class="depan-langkah-nomor"><?= $i + 1 ?></span>
+          <p class="text-sm leading-relaxed text-slate-600"><?= $t ?></p>
+        </li>
+      <?php endforeach; ?>
+    </ol>
 
-      <!-- Panel PEMILIH -->
-      <div id="panelPemilih" class="mt-5" role="tabpanel">
-        <h2 class="kartu-judul">Masuk Pemilih</h2>
-        <p class="kartu-ket">Gunakan NISN (siswa) atau NIK (guru &amp; tendik) beserta token dari panitia.</p>
+    <p class="mt-4 flex items-start gap-2 rounded-2xl bg-brand-50 px-4 py-3 text-xs leading-relaxed text-brand-800 ring-1 ring-brand-100">
+      <?= ikon('kunci', 'h-4 w-4 shrink-0') ?>
+      <span>Token hanya dapat dipakai <b>satu kali</b>. Setelah memilih, Anda otomatis keluar dan
+        perangkat siap dipakai pemilih berikutnya.</span>
+    </p>
+</section>
 
-        <form method="post" action="login.php?peran=pemilih" class="mt-4 space-y-4" autocomplete="off">
-          <?= csrf_field() ?>
-          <div>
-            <label class="label" for="nisn">NISN / NIK</label>
-            <input class="isian" type="text" id="nisn" name="nisn" required inputmode="numeric"
-                   placeholder="Contoh: 0071234501" autocomplete="off" spellcheck="false">
-          </div>
-          <div>
-            <label class="label" for="token">Token Pemilih</label>
-            <input class="isian isian-rapat text-center text-lg font-black uppercase" type="text" id="token" name="token"
-                   required placeholder="XXXX-XXXX" maxlength="12" autocomplete="off" spellcheck="false"
-                   data-token>
-            <p class="catatan-kecil">Huruf besar/kecil dan tanda hubung tidak masalah.</p>
-          </div>
-          <button type="submit" class="tombol-utama w-full py-3 text-base">
-            <?= ikon('kotak') ?> Masuk &amp; Beri Suara
-          </button>
-        </form>
-
-        <p class="mt-4 rounded-xl bg-amber-50 px-3.5 py-3 text-xs font-medium text-amber-800 ring-1 ring-amber-200">
-          Token hanya bisa dipakai <b>satu kali</b>. Setelah memilih, Anda otomatis keluar dan tidak dapat memilih lagi.
-        </p>
-      </div>
-
-      <!-- Panel PANITIA -->
-      <div id="panelPanitia" class="mt-5 border-t border-slate-200 pt-5 lg:border-t-0 lg:pt-0" role="tabpanel">
-        <h2 class="kartu-judul">Masuk Panitia / Pembina</h2>
-        <p class="kartu-ket">Halaman ini untuk mengelola paslon, DPT, dan hasil pemilihan.</p>
-
-        <form method="post" action="login.php?peran=admin" class="mt-4 space-y-4">
-          <?= csrf_field() ?>
-          <div>
-            <label class="label" for="username">Nama Pengguna</label>
-            <input class="isian" type="text" id="username" name="username" required autocomplete="username"
-                   placeholder="admin" spellcheck="false">
-          </div>
-          <div>
-            <label class="label" for="sandi">Kata Sandi</label>
-            <input class="isian" type="password" id="sandi" name="sandi" required autocomplete="current-password"
-                   placeholder="Kata sandi panitia">
-          </div>
-          <button type="submit" class="tombol-putih w-full py-3 text-base">
-            <?= ikon('kunci') ?> Masuk Panel Panitia
-          </button>
-        </form>
-
-        <p class="catatan-kecil">
-          Akun bawaan: <b>admin</b> / <b>admin123</b> &mdash; segera ganti pada menu Pengaturan.
-        </p>
-      </div>
-    </div>
-  </section>
-</div>
+  </div>
 
 <?php page_bottom(['shell' => 'publik']); ?>

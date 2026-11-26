@@ -58,7 +58,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
         $perbarui = isset($_POST['perbarui']);
         $jenisImpor = jenis_pemilih_sah($_POST['jenis_pemilih'] ?? 'siswa');
-        $hasil    = dpt_impor_baris((array) $data['header'], (array) $data['rows'], $perbarui, $jenisImpor);
+        $hasil    = dpt_impor_baris((array) $data['header'], (array) $data['rows'], $perbarui, $jenisImpor, lembaga_id_aktif());
         $hasil['jenis'] = $jenisImpor;
 
         catat_aktivitas('impor_pemilih', 'Impor DPT ' . $jenisImpor . ': ' . $hasil['tambah'] . ' baru, '
@@ -96,7 +96,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         if ($isian['nisn'] === '') {
             $galat[] = $infoIsian['induk'] . ' wajib diisi (hanya angka/huruf).';
-        } elseif ((int) nilai('SELECT COUNT(*) FROM pemilih WHERE nisn = ? AND id <> ?', [$isian['nisn'], $id]) > 0) {
+        } elseif ((int) nilai('SELECT COUNT(*) FROM pemilih WHERE nisn = ? AND lembaga_id = ? AND id <> ?',
+                [$isian['nisn'], lembaga_id_aktif(), $id]) > 0) {
             $galat[] = $infoIsian['induk'] . ' ' . $isian['nisn'] . ' sudah terdaftar pada DPT.';
         }
         if ($isian['nama'] === '') {
@@ -128,17 +129,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             try {
                 if ($id > 0) {
                     if ($isian['token'] === '') {
-                        jalankan('UPDATE pemilih SET nisn = ?, nama = ?, kelas = ?, jabatan = ?, jenis = ? WHERE id = ?',
-                            [$isian['nisn'], $isian['nama'], $isian['kelas'], $jabatan, $isian['jenis'], $id]);
+                        jalankan('UPDATE pemilih SET nisn = ?, nama = ?, kelas = ?, jabatan = ?, jenis = ?
+                                   WHERE id = ? AND lembaga_id = ?',
+                            [$isian['nisn'], $isian['nama'], $isian['kelas'], $jabatan, $isian['jenis'], $id, lembaga_id_aktif()]);
                     } else {
-                        jalankan('UPDATE pemilih SET nisn = ?, nama = ?, kelas = ?, jabatan = ?, jenis = ?, token = ? WHERE id = ?',
-                            [$isian['nisn'], $isian['nama'], $isian['kelas'], $jabatan, $isian['jenis'], $isian['token'], $id]);
+                        jalankan('UPDATE pemilih SET nisn = ?, nama = ?, kelas = ?, jabatan = ?, jenis = ?, token = ?
+                                   WHERE id = ? AND lembaga_id = ?',
+                            [$isian['nisn'], $isian['nama'], $isian['kelas'], $jabatan, $isian['jenis'], $isian['token'], $id, lembaga_id_aktif()]);
                     }
                     catat_aktivitas('pemilih_ubah', 'Data pemilih diubah: ' . $isian['nama']);
                     flash('ok', 'Data pemilih ' . $isian['nama'] . ' diperbarui.');
                 } else {
-                    q('INSERT INTO pemilih (nisn, nama, kelas, jabatan, jenis, token, sudah, dibuat) VALUES (?, ?, ?, ?, ?, ?, 0, ?)',
-                        [$isian['nisn'], $isian['nama'], $isian['kelas'], $jabatan, $isian['jenis'], $isian['token'], date('Y-m-d H:i:s')]);
+                    q('INSERT INTO pemilih (lembaga_id, nisn, nama, kelas, jabatan, jenis, token, sudah, dibuat)
+                       VALUES (?, ?, ?, ?, ?, ?, ?, 0, ?)',
+                        [lembaga_id_aktif(), $isian['nisn'], $isian['nama'], $isian['kelas'], $jabatan,
+                         $isian['jenis'], $isian['token'], date('Y-m-d H:i:s')]);
                     catat_aktivitas('pemilih_tambah', 'Pemilih ditambahkan: ' . $isian['nama']);
                     flash('ok', $infoIsian['nama'] . ' ' . $isian['nama'] . ' ditambahkan dengan token ' . $isian['token'] . '.');
                 }
@@ -155,14 +160,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     /* ------------------------ Generate token per siswa ------------------------ */
     if ($aksi === 'token_baru') {
         $id = (int) ($_POST['id'] ?? 0);
-        $p  = satu('SELECT * FROM pemilih WHERE id = ?', [$id]);
+        $p  = satu('SELECT * FROM pemilih WHERE id = ? AND lembaga_id = ?', [$id, lembaga_id_aktif()]);
         if ($p === false) {
             flash('galat', 'Pemilih tidak ditemukan.');
         } elseif ((int) $p['sudah'] === 1) {
             flash('kuning', 'Token ' . $p['nama'] . ' tidak perlu diganti — siswa itu sudah menggunakan hak pilih.');
         } else {
             $baru = token_unik();
-            jalankan('UPDATE pemilih SET token = ? WHERE id = ?', [$baru, $id]);
+            jalankan('UPDATE pemilih SET token = ? WHERE id = ? AND lembaga_id = ?', [$baru, $id, lembaga_id_aktif()]);
             catat_aktivitas('token_baru', 'Token baru untuk pemilih id ' . $id);
             flash('ok', 'Token baru untuk ' . $p['nama'] . ': ' . $baru);
         }
@@ -173,9 +178,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if ($aksi === 'token_massal') {
         /* Diacak hanya untuk jenis yang sedang dibuka supaya akibatnya terduga. */
         $jenisMassal = jenis_pemilih_sah($_POST['jenis_pemilih'] ?? 'siswa');
-        $daftar = semua('SELECT id FROM pemilih WHERE sudah = 0 AND jenis = ?', [$jenisMassal]);
+        $daftar = semua('SELECT id FROM pemilih WHERE sudah = 0 AND jenis = ? AND lembaga_id = ?',
+            [$jenisMassal, lembaga_id_aktif()]);
         foreach ($daftar as $d) {
-            jalankan('UPDATE pemilih SET token = ? WHERE id = ?', [token_unik(), (int) $d['id']]);
+            jalankan('UPDATE pemilih SET token = ? WHERE id = ? AND lembaga_id = ?',
+                [token_unik(), (int) $d['id'], lembaga_id_aktif()]);
         }
         catat_aktivitas('token_massal', 'Token diacak untuk ' . count($daftar) . ' pemilih (' . $jenisMassal . ')');
         flash('ok', count($daftar) . ' token pemilih ' . jenis_pemilih_info($jenisMassal)['nama']
@@ -186,7 +193,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     /* ---------------------------- Batal pilih ---------------------------- */
     if ($aksi === 'batal_pilih') {
         $id = (int) ($_POST['id'] ?? 0);
-        $p  = satu('SELECT * FROM pemilih WHERE id = ?', [$id]);
+        $p  = satu('SELECT * FROM pemilih WHERE id = ? AND lembaga_id = ?', [$id, lembaga_id_aktif()]);
         if ($p === false) {
             flash('galat', 'Pemilih tidak ditemukan.');
         } elseif ((int) $p['sudah'] !== 1) {
@@ -195,9 +202,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $pdo = pdo();
             try {
                 $pdo->exec('BEGIN IMMEDIATE');
-                /* Batalkan satu surat suara terakhir (anonim) agar jumlahnya tetap seimbang. */
-                jalankan('DELETE FROM suara WHERE id = (SELECT MAX(id) FROM suara)');
-                jalankan('UPDATE pemilih SET sudah = 0, waktu = NULL WHERE id = ?', [$id]);
+                /* Batalkan satu surat suara terakhir (anonim) DARI LEMBAGA INI agar
+                   jumlahnya tetap seimbang — jangan sampai menyentuh surat suara
+                   lembaga lain. */
+                $lembagaId = lembaga_id_aktif();
+                jalankan('DELETE FROM suara WHERE id = (SELECT MAX(id) FROM suara WHERE lembaga_id = ?)', [$lembagaId]);
+                jalankan('UPDATE pemilih SET sudah = 0, waktu = NULL WHERE id = ? AND lembaga_id = ?', [$id, $lembagaId]);
                 $pdo->exec('COMMIT');
                 catat_aktivitas('batal_pilih', 'Hak pilih dikembalikan untuk pemilih id ' . $id);
                 flash('ok', 'Hak pilih ' . $p['nama'] . ' dikembalikan. Satu surat suara terakhir dibatalkan, '
@@ -213,14 +223,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     /* -------------------------------- Hapus -------------------------------- */
     if ($aksi === 'hapus') {
         $id = (int) ($_POST['id'] ?? 0);
-        $p  = satu('SELECT * FROM pemilih WHERE id = ?', [$id]);
+        $p  = satu('SELECT * FROM pemilih WHERE id = ? AND lembaga_id = ?', [$id, lembaga_id_aktif()]);
         if ($p === false) {
             flash('galat', 'Pemilih tidak ditemukan.');
         } elseif ((int) $p['sudah'] === 1) {
             flash('galat', 'Pemilih ' . $p['nama'] . ' sudah memberikan suara. Kembalikan dulu hak pilihnya '
                 . '(tombol Batal pilih) bila memang datanya harus dihapus.');
         } else {
-            jalankan('DELETE FROM pemilih WHERE id = ?', [$id]);
+            jalankan('DELETE FROM pemilih WHERE id = ? AND lembaga_id = ?', [$id, lembaga_id_aktif()]);
             catat_aktivitas('pemilih_hapus', 'Pemilih dihapus: ' . $p['nama']);
             flash('ok', 'Pemilih ' . $p['nama'] . ' dihapus dari DPT.');
         }
@@ -230,7 +240,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 /* ================================ PENYIAPAN ================================ */
 $urut     = $jenisHalaman === 'guru' ? 'jabatan, nama' : 'kelas, nama';
-$pemilih  = semua('SELECT * FROM pemilih WHERE jenis = ? ORDER BY ' . $urut, [$jenisHalaman]);
+$pemilih  = semua('SELECT * FROM pemilih WHERE jenis = ? AND lembaga_id = ? ORDER BY ' . $urut,
+    [$jenisHalaman, lembaga_id_aktif()]);
 $jmlJenis = pemilih_jumlah_jenis();
 $stat     = statistik();
 
@@ -241,7 +252,7 @@ if (isset($_SESSION['hasil_impor'])) {
 }
 
 if ($editId > 0 && !$tampilkanForm) {
-    $p = satu('SELECT * FROM pemilih WHERE id = ?', [$editId]);
+    $p = satu('SELECT * FROM pemilih WHERE id = ? AND lembaga_id = ?', [$editId, lembaga_id_aktif()]);
     if ($p !== false) {
         $jenisHalaman = jenis_pemilih_sah((string) $p['jenis']);
         $infoHalaman  = jenis_pemilih_info($jenisHalaman);

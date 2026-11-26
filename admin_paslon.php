@@ -27,6 +27,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     /* ---------------------------- Simpan paslon ---------------------------- */
     if ($aksi === 'simpan') {
         $id = (int) ($_POST['id'] ?? 0);
+        $lembagaId = lembaga_id_aktif();
         $isian = [
             'id'          => $id,
             'nomor'       => (int) ($_POST['nomor'] ?? 0),
@@ -44,7 +45,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         if ($isian['nomor'] < 1) {
             $galat[] = 'Nomor urut wajib diisi dengan angka 1 atau lebih.';
-        } elseif ((int) nilai('SELECT COUNT(*) FROM paslon WHERE nomor = ? AND id <> ?', [$isian['nomor'], $id]) > 0) {
+        } elseif ((int) nilai('SELECT COUNT(*) FROM paslon WHERE nomor = ? AND lembaga_id = ? AND id <> ?',
+                [$isian['nomor'], $lembagaId, $id]) > 0) {
             $galat[] = 'Nomor urut ' . $isian['nomor'] . ' sudah dipakai pasangan calon lain.';
         }
         if ($isian['ketua'] === '') {
@@ -90,17 +92,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if ($id > 0) {
                 jalankan(
                     'UPDATE paslon SET nomor = ?, ketua = ?, wakil = ?, kelas_ketua = ?, kelas_wakil = ?,
-                            visi = ?, misi = ?, program = ?, foto = ?, aktif = ?, diubah = ? WHERE id = ?',
+                            visi = ?, misi = ?, program = ?, foto = ?, aktif = ?, diubah = ?
+                      WHERE id = ? AND lembaga_id = ?',
                     [$isian['nomor'], $isian['ketua'], $isian['wakil'], $isian['kelas_ketua'], $isian['kelas_wakil'],
-                     $isian['visi'], $isian['misi'], $isian['program'], $foto, $isian['aktif'], $waktu, $id]
+                     $isian['visi'], $isian['misi'], $isian['program'], $foto, $isian['aktif'], $waktu, $id, $lembagaId]
                 );
                 catat_aktivitas('paslon_ubah', 'Paslon nomor ' . $isian['nomor'] . ' diubah');
                 flash('ok', 'Data pasangan calon nomor ' . $isian['nomor'] . ' diperbarui.');
             } else {
                 q(
-                    'INSERT INTO paslon (nomor, ketua, wakil, kelas_ketua, kelas_wakil, visi, misi, program, foto, aktif, dibuat)
-                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-                    [$isian['nomor'], $isian['ketua'], $isian['wakil'], $isian['kelas_ketua'], $isian['kelas_wakil'],
+                    'INSERT INTO paslon (lembaga_id, nomor, ketua, wakil, kelas_ketua, kelas_wakil, visi, misi, program, foto, aktif, dibuat)
+                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+                    [$lembagaId, $isian['nomor'], $isian['ketua'], $isian['wakil'], $isian['kelas_ketua'], $isian['kelas_wakil'],
                      $isian['visi'], $isian['misi'], $isian['program'], $foto, $isian['aktif'], $waktu]
                 );
                 catat_aktivitas('paslon_tambah', 'Paslon nomor ' . $isian['nomor'] . ' ditambahkan');
@@ -118,7 +121,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             flash('galat', 'Pasangan calon tidak ditemukan.');
         } else {
             $baru = (int) $p['aktif'] === 1 ? 0 : 1;
-            jalankan('UPDATE paslon SET aktif = ?, diubah = ? WHERE id = ?', [$baru, date('Y-m-d H:i:s'), $id]);
+            jalankan('UPDATE paslon SET aktif = ?, diubah = ? WHERE id = ? AND lembaga_id = ?',
+                [$baru, date('Y-m-d H:i:s'), $id, lembaga_id_aktif()]);
             catat_aktivitas('paslon_status', 'Paslon nomor ' . $p['nomor'] . ' → ' . ($baru ? 'aktif' : 'nonaktif'));
             flash('ok', 'Paslon nomor ' . $p['nomor'] . ($baru ? ' diaktifkan kembali.' : ' dinonaktifkan (tidak muncul di bilik suara).'));
         }
@@ -135,7 +139,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             flash('galat', 'Paslon nomor ' . $p['nomor'] . ' sudah memiliki suara dan tidak dapat dihapus. '
                 . 'Gunakan tombol Nonaktifkan agar tidak muncul lagi di bilik suara.');
         } else {
-            jalankan('DELETE FROM paslon WHERE id = ?', [$id]);
+            jalankan('DELETE FROM paslon WHERE id = ? AND lembaga_id = ?', [$id, lembaga_id_aktif()]);
             catat_aktivitas('paslon_hapus', 'Paslon nomor ' . $p['nomor'] . ' dihapus');
             flash('ok', 'Pasangan calon nomor ' . $p['nomor'] . ' dihapus.');
         }

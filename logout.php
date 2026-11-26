@@ -11,10 +11,15 @@ $selesai = ($_GET['selesai'] ?? '') === '1';
 if (is_pemilih()) {
     $p = pemilih_kini();
     catat_aktivitas('keluar_pemilih', $p !== false ? 'Pemilih keluar: ' . $p['nama'] : 'Pemilih keluar');
-} elseif (is_admin()) {
+} elseif (is_super()) {
+    $a = admin_kini();
+    catat_aktivitas('keluar_super', $a !== false ? 'Super Admin keluar: ' . $a['nama'] : 'Super Admin keluar');
+} elseif (is_panitia()) {
     $a = admin_kini();
     catat_aktivitas('keluar_panitia', $a !== false ? 'Panitia keluar: ' . $a['nama'] : 'Panitia keluar');
 }
+
+$_SESSION['konteks_lembaga'] = 0;
 
 $_SESSION = [];
 if (ini_get('session.use_cookies')) {

@@ -2,8 +2,10 @@
 /**
  * admin.php — DASHBOARD PANEL PANITIA.
  * ---------------------------------------------------------------------------
- * Ringkasan cepat: statistik, keutuhan data, perolehan sementara, jejak
- * aktivitas terakhir, dan pintasan ke menu pengelolaan.
+ * Ringkasan cepat: statistik, keutuhan data, perolehan sementara, grafik DPT
+ * per kelas, dan pintasan ke menu pengelolaan. Histori aktivitas TIDAK lagi di
+ * sini — tempatnya di akun Super Admin (super_histori.php), permintaan pemilik
+ * v2.5.0.
  */
 declare(strict_types=1);
 require_once __DIR__ . '/inc/init.php';
@@ -14,7 +16,8 @@ require_admin();
 $h      = hasil_lengkap();
 $integ  = integritas_data();
 $paslon = paslon_list(true);
-$jejak  = semua('SELECT * FROM aktivitas ORDER BY id DESC LIMIT 8');
+$dptKelas = dpt_per_kelas();
+$lembaga = lembaga_aktif();
 
 page_top('Dashboard Panitia', [
     'shell' => 'admin',
@@ -23,6 +26,22 @@ page_top('Dashboard Panitia', [
         . '<a href="admin_dpt.php" class="tombol-utama tombol-kecil">' . ikon('dpt', 'h-4 w-4') . ' Kelola DPT</a>',
 ]);
 ?>
+
+<!-- Identitas lembaga yang sedang dikelola -->
+<section class="mb-5 flex flex-wrap items-center gap-4 rounded-2xl bg-white p-4 shadow-soft ring-1 ring-slate-200/80">
+  <span class="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-brand-100 text-sm font-black text-brand-800">
+    <?= e($lembaga !== false ? lembaga_inisial($lembaga) : 'L') ?>
+  </span>
+  <div class="min-w-0 flex-1">
+    <p class="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Madrasah</p>
+    <p class="truncate text-base font-black text-slate-900"><?= e(setting('nama_lembaga')) ?></p>
+    <p class="text-xs text-slate-500">
+      <?= e(jenis_lembaga_label()) ?> &middot; <?= e(istilah_kegiatan()) ?>
+      <?= $lembaga !== false && !empty($lembaga['npsn']) ? ' &middot; NPSN ' . e((string) $lembaga['npsn']) : '' ?>
+    </p>
+  </div>
+  <a href="admin_pengaturan.php" class="tombol-putih tombol-kecil"><?= ikon('setelan', 'h-4 w-4') ?> Pengaturan</a>
+</section>
 
 <!-- ============================== STATISTIK ============================== -->
 <section class="grid gap-4 sm:grid-cols-2 xl:grid-cols-4" aria-label="Statistik pemilihan">
@@ -86,36 +105,86 @@ page_top('Dashboard Panitia', [
       </div>
     </section>
 
-    <!-- ========================= JEJAK AKTIVITAS ========================= -->
+    <!-- ====================== GRAFIK DPT PER KELAS ====================== -->
     <section class="kartu kartu-pad">
-      <div class="flex flex-wrap items-center justify-between gap-3">
-        <h2 class="kartu-judul">Aktivitas Terakhir</h2>
-        <span class="text-xs font-semibold text-slate-500">8 catatan terbaru</span>
+      <div class="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h2 class="kartu-judul">Grafik DPT per Kelas</h2>
+          <p class="kartu-ket">Sebaran pemilih terdaftar menurut kelas &mdash; dibedakan antara yang sudah dan belum memilih.</p>
+        </div>
+        <span class="pill-abu"><?= ikon('dpt', 'h-3.5 w-3.5') ?> <?= e(angka($dptKelas['dpt'])) ?> pemilih</span>
       </div>
-      <div class="bungkus-tabel mt-4">
-        <table class="tabel">
-          <thead>
-            <tr><th class="w-44">Waktu</th><th>Kegiatan</th><th class="w-44">IP</th><th class="w-48">Peramban</th></tr>
-          </thead>
-          <tbody>
-            <?php if (!$jejak): ?>
-              <tr><td colspan="4" class="py-6 text-center text-slate-500">Belum ada aktivitas tercatat.</td></tr>
-            <?php endif; ?>
-            <?php foreach ($jejak as $j): ?>
-              <tr>
-                <td class="whitespace-nowrap text-slate-500"><?= e(tanggal_id((string) $j['waktu'], false, true)) ?></td>
-                <td>
-                  <span class="font-semibold text-slate-700"><?= e(str_replace('_', ' ', (string) $j['jenis'])) ?></span>
-                  <?php if (!empty($j['keterangan'])): ?><span class="block text-xs text-slate-500"><?= e((string) $j['keterangan']) ?></span><?php endif; ?>
-                </td>
-                <td class="text-slate-500"><?= e((string) $j['ip']) ?></td>
-                <td class="text-slate-500"><?= e((string) $j['peramban']) ?></td>
-              </tr>
-            <?php endforeach; ?>
-          </tbody>
-        </table>
-      </div>
-      <p class="catatan-kecil">Jejak surat suara dicatat <b>tanpa</b> memuat pilihan maupun identitas pemilih.</p>
+
+      <?php if (!$dptKelas['baris']): ?>
+        <p class="mt-4 rounded-2xl bg-slate-50 p-4 text-sm text-slate-500 ring-1 ring-slate-200">
+          Belum ada pemilih terdaftar. Tambahkan lewat menu
+          <a class="font-bold text-brand-700 underline" href="admin_dpt.php">DPT Pemilih</a>.
+        </p>
+      <?php else:
+          /* Data grafik dibaca assets/app.js (#dataDptKelas). Tinggi wadah
+             mengikuti jumlah bar supaya label kelas tidak berdesakan. */
+          $grafikJs = [
+              'baris' => array_map(static fn (array $b): array => [
+                  'label' => $b['label'], 'dpt' => $b['dpt'],
+                  'sudah' => $b['sudah'], 'belum' => $b['belum'],
+              ], $dptKelas['baris']),
+              'dpt'   => $dptKelas['dpt'],
+              'sudah' => $dptKelas['sudah'],
+              'belum' => $dptKelas['belum'],
+          ];
+          $tinggi = max(190, 44 * count($dptKelas['baris']) + 24); ?>
+        <script type="application/json" id="dataDptKelas"><?= json_encode($grafikJs, JSON_UNESCAPED_UNICODE | JSON_HEX_TAG) ?></script>
+        <div class="mt-4 w-full" style="height: <?= (int) $tinggi ?>px">
+          <canvas id="chDptKelas" role="img"
+                  aria-label="Grafik DPT per kelas: <?= e((string) count($dptKelas['baris'])) ?> kelompok pemilih"></canvas>
+        </div>
+
+        <div class="mt-4 flex flex-wrap items-center gap-x-5 gap-y-2 text-xs font-semibold text-slate-600">
+          <span class="inline-flex items-center gap-2">
+            <span class="h-2.5 w-2.5 rounded-full bg-emerald-600"></span> Sudah memilih (<?= e(angka($dptKelas['sudah'])) ?>)
+          </span>
+          <span class="inline-flex items-center gap-2">
+            <span class="h-2.5 w-2.5 rounded-full bg-amber-500"></span> Belum memilih (<?= e(angka($dptKelas['belum'])) ?>)
+          </span>
+          <span class="text-slate-500">Panjang bar = jumlah DPT kelompok itu</span>
+        </div>
+
+        <details class="mt-4 rounded-2xl bg-slate-50 p-3 ring-1 ring-slate-200">
+          <summary class="cursor-pointer text-sm font-bold text-slate-700">Lihat angka per kelas</summary>
+          <div class="bungkus-tabel mt-3 min-w-0">
+            <?php /* Tabel ringkas 4 kolom: lebar minimum bawaan .tabel (42rem)
+                     tidak diperlukan dan membuat kartu ini melebarkan halaman
+                     di layar HP — jadi dilepas di sini saja. */ ?>
+            <table class="tabel !min-w-0">
+              <thead>
+                <tr><th>Kelas</th><th class="w-24">DPT</th><th class="w-28">Sudah</th><th class="w-28">Belum</th></tr>
+              </thead>
+              <tbody>
+                <?php foreach ($dptKelas['baris'] as $b): ?>
+                  <tr>
+                    <td class="font-semibold text-slate-700"><?= e($b['label']) ?></td>
+                    <td class="font-bold"><?= e(angka($b['dpt'])) ?></td>
+                    <td class="text-emerald-700"><?= e(angka($b['sudah'])) ?></td>
+                    <td class="text-amber-700"><?= e(angka($b['belum'])) ?></td>
+                  </tr>
+                <?php endforeach; ?>
+              </tbody>
+              <tfoot>
+                <tr>
+                  <td class="border-t border-slate-200 px-4 py-3 font-black">JUMLAH</td>
+                  <td class="border-t border-slate-200 px-4 py-3 font-black"><?= e(angka($dptKelas['dpt'])) ?></td>
+                  <td class="border-t border-slate-200 px-4 py-3 font-black text-emerald-700"><?= e(angka($dptKelas['sudah'])) ?></td>
+                  <td class="border-t border-slate-200 px-4 py-3 font-black text-amber-700"><?= e(angka($dptKelas['belum'])) ?></td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+        </details>
+
+        <?php if ($dptKelas['guru'] > 0): ?>
+          <p class="catatan-kecil">Bar <b>Guru &amp; Tendik</b> menghitung DPT guru dan tenaga kependidikan yang tidak memiliki kelas.</p>
+        <?php endif; ?>
+      <?php endif; ?>
     </section>
   </div>
 

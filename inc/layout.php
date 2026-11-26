@@ -41,6 +41,9 @@ function ikon(string $nama, string $kelas = 'h-5 w-5'): string
         'kotak'     => '<path d="M9 12.75L11.25 15 15 9.75M21 12c0 1.268-.63 2.39-1.593 3.068a3.745 3.745 0 01-1.043 3.296 3.745 3.745 0 01-3.296 1.043A3.745 3.745 0 0112 21c-1.268 0-2.39-.63-3.068-1.593a3.746 3.746 0 01-3.296-1.043 3.745 3.745 0 01-1.043-3.296A3.745 3.745 0 013 12c0-1.268.63-2.39 1.593-3.068a3.745 3.745 0 011.043-3.296 3.746 3.746 0 013.296-1.043A3.746 3.746 0 0112 3c1.268 0 2.39.63 3.068 1.593a3.746 3.746 0 013.296 1.043 3.746 3.746 0 011.043 3.296A3.745 3.745 0 0121 12z"/>',
         'jam'       => '<path d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z"/>',
         'piala'     => '<path d="M12 15a3 3 0 100-6 3 3 0 000 6z"/><path d="M12 15v6m-3 0h6M6 3h12l-.5 6a5.5 5.5 0 01-11 0L6 3z"/>',
+        'lembaga'   => '<path d="M12 21v-8.25M15.75 21v-8.25M8.25 21v-8.25M3 9l9-6 9 6m-1.5 12V10.332A48.36 48.36 0 0012 9.75c-2.551 0-5.056.2-7.5.582V21M3 21h18M12 6.75h.008v.008H12V6.75z"/>',
+        'akun'      => '<path d="M15 19.128a9.38 9.38 0 002.625.372 9.337 9.337 0 004.121-.952 4.125 4.125 0 00-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 018.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0111.964-3.07M12 6.375a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zm8.25 2.25a2.625 2.625 0 11-5.25 0 2.625 2.625 0 015.25 0z"/>',
+        'kembali'   => '<path d="M9 15L3 9m0 0l6-6M3 9h12a6 6 0 010 12h-3"/>',
     ];
     $isi = $jalur[$nama] ?? $jalur['info'];
 
@@ -48,7 +51,7 @@ function ikon(string $nama, string $kelas = 'h-5 w-5'): string
         . 'stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' . $isi . '</svg>';
 }
 
-/** Item menu panel panitia. */
+/** Item menu panel pengelola lembaga (panitia / Super Admin berkonteks). */
 function menu_admin(): array
 {
     return [
@@ -58,6 +61,19 @@ function menu_admin(): array
         ['berkas' => 'hasil.php',            'label' => 'Hasil Real-Count', 'ikon' => 'chart'],
         ['berkas' => 'admin_pengaturan.php', 'label' => 'Pengaturan',       'ikon' => 'setelan'],
         ['berkas' => 'admin_reset.php',      'label' => 'Reset Data',       'ikon' => 'reset'],
+    ];
+}
+
+/** Item menu panel Super Admin (lintas lembaga). */
+function menu_super(): array
+{
+    return [
+        ['berkas' => 'super.php',        'label' => 'Ringkasan Semua Lembaga', 'ikon' => 'dashboard'],
+        ['berkas' => 'super_depan.php',  'label' => 'Halaman Depan',           'ikon' => 'setelan'],
+        ['berkas' => 'super_lembaga.php', 'label' => 'Kelola Lembaga',         'ikon' => 'lembaga'],
+        ['berkas' => 'super_akun.php',    'label' => 'Akun Panitia',           'ikon' => 'akun'],
+        ['berkas' => 'super_hasil.php',   'label' => 'Pantau Hasil',           'ikon' => 'chart'],
+        ['berkas' => 'super_histori.php', 'label' => 'Histori Aktivitas',      'ikon' => 'jam'],
     ];
 }
 
@@ -84,22 +100,26 @@ function cetak_toast(): void
  * Membuka halaman.
  *
  * @param string $judul Judul dokumen & judul halaman.
- * @param array  $opsi  shell: 'admin'|'publik'|'polos', sub, aksi (HTML kanan bilah atas)
+ * @param array  $opsi  shell: 'admin'|'super'|'publik'|'polos', sub, aksi (HTML kanan bilah atas)
  */
 function page_top(string $judul, array $opsi = []): void
 {
-    /* Seluruh keluaran halaman ditampung dulu supaya istilah OSIS dapat
-       disesuaikan menjadi OSIM pada lembaga madrasah (terjemahkan_selesai()). */
+    /* Seluruh keluaran halaman ditampung dulu supaya istilah lama (OSIS) yang
+       mungkin masih tersimpan pada data/naskah pengguna ditukar menjadi OSIM
+       (terjemahkan_selesai()). */
     if (empty($GLOBALS['__ev_buf'])) {
         $GLOBALS['__ev_buf'] = true;
         ob_start();
     }
 
-    $shell = $opsi['shell'] ?? 'publik';
-    $sub   = $opsi['sub'] ?? '';
-    $aksi  = $opsi['aksi'] ?? '';
-    $admin = admin_kini();
-    $nama  = $admin ? (string) $admin['nama'] : '';
+    $shell   = $opsi['shell'] ?? 'publik';
+    $sub     = $opsi['sub'] ?? '';
+    $aksi    = $opsi['aksi'] ?? '';
+    $admin   = admin_kini();
+    $nama    = $admin ? (string) $admin['nama'] : '';
+    $lembaga = lembaga_aktif();
+    $namaLembaga = $lembaga !== false ? (string) $lembaga['nama'] : '';
+    $super   = is_super();
     ?>
 <!DOCTYPE html>
 <html lang="id" class="scroll-smooth">
@@ -107,33 +127,33 @@ function page_top(string $judul, array $opsi = []): void
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex, nofollow">
-<meta name="theme-color" content="#312e81">
+<meta name="theme-color" content="#065f46">
 <title><?= e($judul) ?> &middot; <?= e(APP_NAME) ?></title>
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%234f46e5'/%3E%3Cpath d='M9 17l4 4 10-10' stroke='white' stroke-width='3' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
-<link rel="stylesheet" href="assets/app.css?v=<?= e(APP_VERSION) ?>">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%23047857'/%3E%3Cpath d='M9 17l4 4 10-10' stroke='white' stroke-width='3' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="<?= e(ASET_CSS) ?>">
 </head>
-<body class="min-h-screen bg-slate-100 text-slate-800">
+<body class="min-h-screen bg-white text-slate-800">
 <?php cetak_toast(); ?>
 
-<?php if ($shell === 'admin'): ?>
+<?php if ($shell === 'admin' || $shell === 'super'): ?>
 <div class="lg:flex">
-  <!-- ==================== MENU SAMPING (panel panitia) ==================== -->
+  <!-- ==================== MENU SAMPING (panel) ==================== -->
   <aside id="papanSamping" class="fixed inset-y-0 left-0 z-[70] w-72 -translate-x-full overflow-y-auto bg-gradient-to-b from-brand-800 via-brand-800 to-brand-950 p-5 shadow-naik transition duration-300 lg:sticky lg:top-0 lg:h-screen lg:translate-x-0"
-         aria-label="Menu panel panitia">
+         aria-label="<?= $shell === 'super' ? 'Menu panel Super Admin' : 'Menu panel pengelola lembaga' ?>">
     <div class="flex items-center gap-3">
-      <span class="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-white/15 text-white ring-1 ring-white/25">
-        <?= ikon('kotak', 'h-6 w-6') ?>
+      <span class="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-emas-400/20 text-emas-100 ring-1 ring-emas-300/40">
+        <?= ikon($shell === 'super' ? 'lembaga' : 'kotak', 'h-6 w-6') ?>
       </span>
       <div class="min-w-0">
         <p class="truncate text-sm font-black uppercase tracking-wide text-white"><?= e(APP_NAME) ?></p>
-        <p class="truncate text-xs text-brand-200">Panel Panitia</p>
+        <p class="truncate text-xs text-brand-200"><?= $shell === 'super' ? 'Panel Super Admin' : 'Panel Panitia' ?></p>
       </div>
       <button type="button" class="ml-auto rounded-lg p-1.5 text-white/70 transition hover:bg-white/10 hover:text-white lg:hidden"
               data-nav-tutup aria-label="Tutup menu"><?= ikon('tutup') ?></button>
     </div>
 
     <nav class="mt-7 flex flex-col gap-1.5">
-      <?php foreach (menu_admin() as $m):
+      <?php foreach ($shell === 'super' ? menu_super() : menu_admin() as $m):
           $aktif = basename((string) ($_SERVER['PHP_SELF'] ?? '')) === $m['berkas']; ?>
         <a href="<?= e($m['berkas']) ?>" class="<?= $aktif ? 'nav-tautan-aktif' : 'nav-tautan' ?>">
           <?= ikon($m['ikon']) ?>
@@ -142,15 +162,35 @@ function page_top(string $judul, array $opsi = []): void
       <?php endforeach; ?>
     </nav>
 
-    <div class="mt-8 rounded-2xl bg-white/10 p-4 ring-1 ring-white/15">
+    <?php if ($shell === 'admin'): ?>
+      <div class="mt-8 rounded-2xl bg-white/10 p-4 ring-1 ring-white/15">
+        <p class="text-xs font-semibold uppercase tracking-wide text-brand-200">Lembaga yang dikelola</p>
+        <p class="mt-1.5 text-sm font-bold leading-snug text-white"><?= e($namaLembaga) ?></p>
+        <p class="mt-1 text-[11px] text-brand-200">
+          <?= e(jenis_lembaga() !== '' ? JENIS_LEMBAGA_PENDEK[jenis_lembaga()] : '-') ?>
+          &middot; <?= e(istilah_kegiatan()) ?>
+        </p>
+      </div>
+      <?php if ($super): ?>
+        <form method="post" action="super_masuk_lembaga.php" class="mt-4">
+          <?= csrf_field() ?>
+          <input type="hidden" name="aksi" value="keluar">
+          <button type="submit" class="flex w-full items-center justify-center gap-2 rounded-xl bg-white/20 px-3 py-2.5 text-xs font-bold text-white transition hover:bg-white/30">
+            <?= ikon('kembali', 'h-4 w-4') ?> Panel Super Admin
+          </button>
+        </form>
+      <?php endif; ?>
+    <?php endif; ?>
+
+    <div class="mt-5 rounded-2xl bg-white/10 p-4 ring-1 ring-white/15">
       <p class="text-xs font-semibold uppercase tracking-wide text-brand-200">Masuk sebagai</p>
       <div class="mt-2 flex items-center gap-3">
-        <span class="grid h-10 w-10 place-items-center rounded-full bg-emerald-500 text-sm font-black text-white">
+        <span class="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-emas-500 text-sm font-black text-white">
           <?= e(strtoupper(substr($nama !== '' ? $nama : 'P', 0, 1))) ?>
         </span>
         <div class="min-w-0">
           <p class="truncate text-sm font-bold text-white"><?= e($nama) ?></p>
-          <p class="text-xs text-brand-200">Panitia / Pembina</p>
+          <p class="text-xs text-brand-200"><?= $super ? 'Super Admin' : 'Panitia / Pembina' ?></p>
         </div>
       </div>
       <a href="logout.php" class="mt-3 flex items-center justify-center gap-2 rounded-xl bg-white/15 px-3 py-2 text-xs font-bold text-white transition hover:bg-white/25">
@@ -158,11 +198,9 @@ function page_top(string $judul, array $opsi = []): void
       </a>
     </div>
 
-    <?php if (hasil_publik()): ?>
-      <a href="hasil.php" class="mt-4 flex items-center gap-2 rounded-xl px-3 py-2 text-xs font-semibold text-brand-100 transition hover:bg-white/10">
-        <?= ikon('chart', 'h-4 w-4') ?> Lihat papan hasil publik
-      </a>
-    <?php endif; ?>
+    <a href="index.php" class="mt-4 flex items-center gap-2 rounded-xl px-3 py-2 text-xs font-semibold text-brand-100 transition hover:bg-white/10">
+      <?= ikon('panah', 'h-4 w-4') ?> Halaman depan
+    </a>
   </aside>
   <div id="lapisNav" class="fixed inset-0 z-[60] hidden bg-slate-900/60 lg:hidden" data-nav-tutup></div>
 
@@ -173,20 +211,27 @@ function page_top(string $judul, array $opsi = []): void
                 data-nav-buka aria-label="Buka menu"><?= ikon('menu') ?></button>
         <div class="min-w-0">
           <h1 class="truncate text-base font-black text-slate-900 sm:text-lg"><?= e($judul) ?></h1>
-          <?php if ($sub !== ''): ?><p class="truncate text-xs text-slate-500"><?= e($sub) ?></p><?php endif; ?>
+          <?php if ($sub !== ''): ?><p class="truncate text-xs text-slate-500"><?= $sub ?></p><?php endif; ?>
         </div>
         <div class="ml-auto flex items-center gap-2"><?= $aksi ?></div>
       </div>
     </header>
+    <?php if ($shell === 'admin' && $super): ?>
+      <div class="border-b border-amber-200 bg-amber-50 px-4 py-2.5 text-xs font-semibold text-amber-900 lg:px-8">
+        <span class="pill bg-amber-100 text-amber-800 ring-amber-300">Super Admin</span>
+        Anda sedang mengelola <b><?= e($namaLembaga) ?></b>. Semua tindakan di halaman ini hanya menyentuh lembaga tersebut.
+        <a href="super.php" class="underline">Kembali ke ringkasan</a>
+      </div>
+    <?php endif; ?>
     <main class="mx-auto w-full max-w-[92rem] p-4 sm:p-6 lg:p-8">
 <?php elseif ($shell === 'publik'): ?>
   <header class="sticky top-0 z-40 border-b border-brand-900/20 bg-gradient-to-r from-brand-900 via-brand-800 to-brand-900 text-white shadow-soft">
     <div class="mx-auto flex w-full max-w-[92rem] flex-wrap items-center gap-3 px-4 py-3 sm:px-6">
       <a href="index.php" class="flex items-center gap-3">
-        <span class="grid h-10 w-10 place-items-center rounded-xl bg-white/15 ring-1 ring-white/25"><?= ikon('kotak', 'h-5 w-5') ?></span>
+        <span class="grid h-10 w-10 place-items-center rounded-xl bg-emas-400/20 text-emas-100 ring-1 ring-emas-300/40"><?= ikon('kotak', 'h-5 w-5') ?></span>
         <span class="min-w-0">
           <span class="block truncate text-sm font-black uppercase tracking-wide"><?= e(APP_NAME) ?></span>
-          <span class="block truncate text-[11px] text-brand-200"><?= e(APP_SUB) ?></span>
+          <span class="block truncate text-[11px] text-brand-200"><?= e($namaLembaga !== '' ? $namaLembaga : APP_SUB) ?></span>
         </span>
       </a>
       <div class="ml-auto flex items-center gap-2"><?= $aksi ?></div>
@@ -202,16 +247,18 @@ function page_top(string $judul, array $opsi = []): void
 /** Menutup halaman. */
 function page_bottom(array $opsi = []): void
 {
-    $shell = $opsi['shell'] ?? 'publik';
+    $shell   = $opsi['shell'] ?? 'publik';
+    $lembaga = lembaga_aktif();
+    $namaLembaga = $lembaga !== false ? (string) $lembaga['nama'] : '';
     ?>
     </main>
     <?php if ($shell !== 'polos'): ?>
     <footer class="mx-auto w-full max-w-[92rem] px-4 pb-8 pt-10 text-center text-xs text-slate-500 sm:px-6">
-      <p><?= e(APP_NAME) ?> Versi <?= e(APP_VERSION) ?> &middot; <?= e(setting('nama_lembaga')) ?></p>
-      <p class="mt-1">Dikembangkan oleh <?= e(APP_AUTHOR) ?> &middot; Sistem pemilihan elektronik OSIS</p>
+      <p><?= e(APP_NAME) ?> Versi <?= e(APP_VERSION) ?><?= $namaLembaga !== '' ? ' &middot; ' . e($namaLembaga) : '' ?></p>
+      <p class="mt-1">Dikembangkan oleh <?= e(APP_AUTHOR) ?> &middot; Sistem pemilihan elektronik <?= e(istilah_kegiatan()) ?></p>
     </footer>
     <?php endif; ?>
-    <?php if ($shell === 'admin'): ?>
+    <?php if ($shell === 'admin' || $shell === 'super'): ?>
       </div><!-- /.min-w-0.flex-1 -->
     </div><!-- /.lg:flex -->
     <?php endif; ?>
@@ -220,7 +267,7 @@ function page_bottom(array $opsi = []): void
       <script src="<?= e($s) ?>?v=<?= e(APP_VERSION) ?>"></script>
     <?php endforeach; ?>
     <script>window.EV_LABEL_ZONA = '<?= e(LABEL_ZONA) ?>';</script>
-    <script src="assets/app.js?v=<?= e(APP_VERSION) ?>"></script>
+    <script src="<?= e(ASET_JS) ?>"></script>
     <script>document.addEventListener('DOMContentLoaded', function () { if (window.EV && EV.siapkan) { EV.siapkan(); } });</script>
 </body>
 </html>

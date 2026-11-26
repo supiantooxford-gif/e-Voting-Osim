@@ -13,12 +13,16 @@ if (empty($_SESSION['sukses_suara'])) {
     redirect('index.php');
 }
 
-/* Ambil nama pemilih untuk ucapan, lalu AKHIRI sesi memilihnya. */
+/* Ambil nama pemilih untuk ucapan, HITUNG statistik lembaganya, lalu AKHIRI
+   sesi memilihnya (statistik diambil lebih dulu karena konteks lembaga hilang
+   begitu sesi pemilih dihapus). */
 $pemilih = pemilih_kini();
 $nama    = $pemilih !== false ? (string) $pemilih['nama'] : 'Pemilih';
+$lembagaId = $pemilih !== false ? (int) $pemilih['lembaga_id'] : 0;
+$stat    = statistik($lembagaId);
+$namaLembaga = setting('nama_lembaga');
+$bukaHasil   = $lembagaId > 0 && hasil_publik($lembagaId);
 unset($_SESSION['sukses_suara'], $_SESSION['sukses_waktu'], $_SESSION['pemilih_id'], $_SESSION['peran']);
-
-$stat = statistik();
 
 page_top('Suara Berhasil Dikirim', ['shell' => 'publik', 'aksi' =>
     '<a href="index.php" class="tombol-putih tombol-kecil">' . ikon('dashboard', 'h-4 w-4') . ' Ke Halaman Masuk</a>']);
@@ -35,7 +39,8 @@ page_top('Suara Berhasil Dikirim', ['shell' => 'publik', 'aksi' =>
 
     <h1 class="mt-6 text-2xl font-black text-slate-900 sm:text-3xl">Suara Anda Berhasil Direkam!</h1>
     <p class="mt-2 text-sm text-slate-600">
-      Terima kasih, <b><?= e($nama) ?></b>. Partisipasi Anda menentukan arah OSIS ke depan.
+      Terima kasih, <b><?= e($nama) ?></b>. Partisipasi Anda menentukan arah
+      <?= e(istilah_kegiatan()) ?> <?= e($namaLembaga) ?> ke depan.
     </p>
 
     <div class="mt-6 grid gap-3 text-left sm:grid-cols-3">
@@ -62,8 +67,8 @@ page_top('Suara Berhasil Dikirim', ['shell' => 'publik', 'aksi' =>
       <a href="logout.php?selesai=1" class="tombol-utama flex-1 py-3 text-base" data-keluar-sekarang>
         <?= ikon('keluar', 'h-5 w-5') ?> Selesai &amp; Keluar
       </a>
-      <?php if (hasil_publik()): ?>
-        <a href="hasil.php" class="tombol-ok flex-1 py-3 text-base">
+      <?php if ($bukaHasil): ?>
+        <a href="hasil.php?lembaga=<?= (int) $lembagaId ?>" class="tombol-ok flex-1 py-3 text-base">
           <?= ikon('chart', 'h-5 w-5') ?> Lihat Hasil Sementara
         </a>
       <?php endif; ?>

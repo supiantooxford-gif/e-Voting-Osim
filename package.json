@@ -2,9 +2,9 @@
   "name": "e-voting-osis",
   "version": "1.0.0",
   "private": true,
-  "description": "E-Voting OSIS - aplikasi pemilihan ketua & wakil ketua OSIS elektronik (PHP + SQLite). Tailwind hanya dipakai saat MEMBANGUN aset, bukan saat aplikasi berjalan.",
+  "description": "E-Voting OSIM - aplikasi pemilihan ketua & wakil ketua OSIM elektronik (PHP + SQLite). Tailwind hanya dipakai saat MEMBANGUN aset, bukan saat aplikasi berjalan.",
   "scripts": {
-    "css": "tailwindcss -i assets/tailwind.css -o assets/app.css --minify",
+    "css": "tailwindcss -i assets/tailwind.css -o assets/app.css --minify && node tools/aset-versi.js",
     "css:watch": "tailwindcss -i assets/tailwind.css -o assets/app.css --watch"
   },
   "devDependencies": {

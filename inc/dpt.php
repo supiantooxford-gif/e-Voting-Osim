@@ -149,11 +149,14 @@ function dpt_peta_kolom(array $header, string $jenis = 'siswa'): array
  * @param bool  $perbarui  true = data pemilih yang sudah ada ikut diperbarui.
  * @return array Ringkasan: tambah, ubah, lewat, masalah[], token_baru[]
  */
-function dpt_impor_baris(array $header, array $rows, bool $perbarui = false, string $jenis = 'siswa'): array
+function dpt_impor_baris(array $header, array $rows, bool $perbarui = false, string $jenis = 'siswa', ?int $lembagaId = null): array
 {
     $jenis   = jenis_pemilih_sah($jenis);
     $info    = jenis_pemilih_info($jenis);
     $peta    = dpt_peta_kolom($header, $jenis);
+    /* Impor SELALU masuk ke lembaga yang sedang dikelola — tidak pernah ke
+       lembaga lain, sekalipun nomor induknya sama. */
+    $lembagaId = $lembagaId ?? lembaga_id_aktif();
     $ringkas = [
         'total' => 0, 'tambah' => 0, 'ubah' => 0, 'lewat' => 0,
         'masalah' => [], 'token_baru' => [], 'kolom' => $peta,
@@ -242,7 +245,7 @@ function dpt_impor_baris(array $header, array $rows, bool $perbarui = false, str
             }
             $dipakaiDalamBerkas[$nisn] = true;
 
-            $lama = satu('SELECT * FROM pemilih WHERE nisn = ?', [$nisn]);
+            $lama = satu('SELECT * FROM pemilih WHERE nisn = ? AND lembaga_id = ?', [$nisn, $lembagaId]);
 
             /* Token: pakai dari berkas bila sah & belum dipakai siswa lain. */
             $tokenSiap = '';
@@ -267,9 +270,9 @@ function dpt_impor_baris(array $header, array $rows, bool $perbarui = false, str
                         $tokenSiap = token_unik();
                     }
                     try {
-                        q('INSERT INTO pemilih (nisn, nama, kelas, token, sudah, dibuat, jenis, jabatan)'
-                            . ' VALUES (?, ?, ?, ?, 0, ?, ?, ?)',
-                            [$nisn, $nama, $kelas, $tokenSiap, $waktu, $jenis, $jabatan === '' ? null : $jabatan]);
+                        q('INSERT INTO pemilih (lembaga_id, nisn, nama, kelas, token, sudah, dibuat, jenis, jabatan)'
+                            . ' VALUES (?, ?, ?, ?, ?, 0, ?, ?, ?)',
+                            [$lembagaId, $nisn, $nama, $kelas, $tokenSiap, $waktu, $jenis, $jabatan === '' ? null : $jabatan]);
                         break;
                     } catch (PDOException $e) {
                         if ($coba >= 5 || !str_contains($e->getMessage(), 'UNIQUE')) {
@@ -290,8 +293,9 @@ function dpt_impor_baris(array $header, array $rows, bool $perbarui = false, str
                 if ($tokenSiap === '') {
                     $tokenSiap = (string) $lama['token'];
                 }
-                q('UPDATE pemilih SET nama = ?, kelas = ?, jabatan = ?, token = ?, jenis = ? WHERE id = ?',
-                    [$nama, $kelas, $jabatan === '' ? null : $jabatan, $tokenSiap, $jenis, (int) $lama['id']]);
+                q('UPDATE pemilih SET nama = ?, kelas = ?, jabatan = ?, token = ?, jenis = ?
+                    WHERE id = ? AND lembaga_id = ?',
+                    [$nama, $kelas, $jabatan === '' ? null : $jabatan, $tokenSiap, $jenis, (int) $lama['id'], $lembagaId]);
                 $ringkas['ubah']++;
             } else {
                 $ringkas['lewat']++;
@@ -318,7 +322,7 @@ function dpt_contoh_baris(string $jenis = 'siswa'): array
     if (jenis_pemilih_sah($jenis) === 'guru') {
         return [
             ['NIK', 'Nama', 'Jabatan', 'Token'],
-            ['197501012005011001', 'Drs. Ahmad Fauzi, M.Pd', 'Kepala Sekolah/Madrasah', 'AB12-CD34'],
+            ['197501012005011001', 'Drs. Ahmad Fauzi, M.Pd', 'Kepala Madrasah', 'AB12-CD34'],
             ['198203152008012002', 'Siti Aminah, S.Pd', 'Guru', ''],
             ['199005202015031003', 'Rahmat Hidayat, S.Pd', 'Staf Tata Usaha', ''],
         ];
@@ -370,11 +374,12 @@ function dpt_filter_get(): array
     ];
 }
 
-/** Menyusun klausa WHERE dari penyaring DPT. */
-function dpt_where(array $f): array
+/** Menyusun klausa WHERE dari penyaring DPT (selalu dibatasi satu lembaga). */
+function dpt_where(array $f, ?int $lembagaId = null): array
 {
-    $sql  = ' WHERE 1 = 1';
-    $args = [];
+    $id   = $lembagaId ?? lembaga_id_aktif();
+    $sql  = ' WHERE lembaga_id = ?';
+    $args = [$id];
     if ($f['cari'] !== '') {
         $sql .= ' AND (nama LIKE ? OR nisn LIKE ? OR kelas LIKE ? OR token LIKE ?)';
         $kunci = '%' . $f['cari'] . '%';
@@ -397,20 +402,21 @@ function dpt_where(array $f): array
 }
 
 /** Daftar pemilih sesuai penyaring (dipakai halaman cetak kartu). */
-function dpt_pemilih_saring(array $f): array
+function dpt_pemilih_saring(array $f, ?int $lembagaId = null): array
 {
-    [$where, $args] = dpt_where($f);
+    [$where, $args] = dpt_where($f, $lembagaId);
     $urut = $f['jenis'] === 'guru' ? 'jabatan, nama' : 'kelas, nama';
 
     return semua('SELECT * FROM pemilih' . $where . ' ORDER BY ' . $urut, $args);
 }
 
 /** Daftar jabatan yang dipakai pemilih guru (untuk pilihan penyaring). */
-function dpt_jabatan_daftar(): array
+function dpt_jabatan_daftar(?int $lembagaId = null): array
 {
+    $id = $lembagaId ?? lembaga_id_aktif();
     $hasil = [];
-    foreach (semua('SELECT DISTINCT jabatan FROM pemilih WHERE jenis = "guru"'
-        . ' AND jabatan IS NOT NULL AND jabatan <> "" ORDER BY jabatan') as $b) {
+    foreach (semua("SELECT DISTINCT jabatan FROM pemilih WHERE lembaga_id = ? AND jenis = 'guru'
+                    AND jabatan IS NOT NULL AND jabatan <> '' ORDER BY jabatan", [$id]) as $b) {
         $hasil[] = (string) $b['jabatan'];
     }
 
@@ -418,11 +424,12 @@ function dpt_jabatan_daftar(): array
 }
 
 /** Daftar kelas yang dipakai pemilih (untuk pilihan penyaring). */
-function dpt_kelas_daftar(): array
+function dpt_kelas_daftar(?int $lembagaId = null): array
 {
+    $id = $lembagaId ?? lembaga_id_aktif();
     $hasil = [];
-    foreach (semua('SELECT DISTINCT kelas FROM pemilih WHERE jenis = "siswa"'
-        . ' AND kelas IS NOT NULL AND kelas <> "" ORDER BY kelas') as $b) {
+    foreach (semua("SELECT DISTINCT kelas FROM pemilih WHERE lembaga_id = ? AND jenis = 'siswa'
+                    AND kelas IS NOT NULL AND kelas <> '' ORDER BY kelas", [$id]) as $b) {
         $hasil[] = (string) $b['kelas'];
     }
 
